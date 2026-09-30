@@ -9,6 +9,8 @@
   const [p0, p1] = (q.get("pages") || "1-10").split("-").map(Number);
   const sample = q.get("sample") === "1";
   const kid = theme === "kid";
+  // 그림 사실성: pic=3d(기본)|flat|line, line=line(기본)|real
+  VP.STYLE = { pic: q.get("pic") || "3d", lineTasks: q.get("line") || "line" };
   const book = document.getElementById("book");
   const THEME_NAME = { kid: "유아·초등 저학년용", teen: "초등 고학년·청소년용" };
   const MASCOT = { kid: ["1F989", "1F407", "1F43F"], teen: [] };
@@ -45,7 +47,7 @@
   }
 
   function credit() {
-    return `<section class="page ${theme}"><div class="hd" style="--tint:#eee"><div class="ttl">그림 출처</div></div><div class="credit"><p>이 워크북의 그림(아이콘)은 <b>OpenMoji</b> 프로젝트의 그림을 사용했습니다.</p><p>OpenMoji – the open-source emoji and icon project. License: CC BY-SA 4.0<br>https://openmoji.org · https://github.com/hfg-gmuend/openmoji</p><p>격자, 도형, 선, 미로 등 나머지 그림은 문항 생성 프로그램으로 새로 만든 것입니다.</p></div></section>`;
+    return `<section class="page ${theme}"><div class="hd" style="--tint:#eee"><div class="ttl">그림 출처</div></div><div class="credit"><p>사실적 3D 그림: <b>Microsoft Fluent Emoji 3D</b> — Copyright (c) Microsoft Corporation, MIT License<br>https://github.com/microsoft/fluentui-emoji</p><p>선화(윤곽선) 그림과 단순 컬러 그림: <b>OpenMoji</b> – the open-source emoji and icon project. License: CC BY-SA 4.0<br>https://openmoji.org · https://github.com/hfg-gmuend/openmoji</p><p>격자, 도형, 선, 미로 등 나머지 그림은 문항 생성 프로그램으로 새로 만든 것입니다.</p></div></section>`;
   }
 
   if (q.get("cover") !== "0") pages.push(cover());

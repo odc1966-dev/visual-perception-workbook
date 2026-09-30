@@ -1,7 +1,8 @@
 /* 시지각 워크북 — 아이콘 목록
  * 그림: OpenMoji (https://openmoji.org) — CC BY-SA 4.0
- * [hexcode, 이름, 분류, 방향성(d: 좌우가 뚜렷함)]
- * icons/c/ = 컬러, icons/k/ = 선화(검정 윤곽)
+ * 사실적 3D 그림: Microsoft Fluent Emoji 3D (https://github.com/microsoft/fluentui-emoji) — MIT
+ * [hexcode, 이름, 분류, 방향성(d: 좌우가 뚜렷하고 뒤집기≠180° 회전)]
+ * icons/r/ = 사실적 3D(png), icons/c/ = 단순 컬러, icons/k/ = 선화(검정 윤곽)
  */
 (function (VP) {
   const KID = [
@@ -31,7 +32,7 @@
     ["1F382", "케이크", "간식"], ["1F9C1", "컵케이크", "간식"], ["1F36D", "막대사탕", "간식"],
     // 탈것
     ["1F682", "기차", "탈것", "d"], ["1F68C", "버스", "탈것", "d"], ["1F691", "구급차", "탈것", "d"],
-    ["1F692", "소방차", "탈것", "d"], ["1F693", "경찰차", "탈것", "d"], ["1F695", "택시", "탈것", "d"],
+    ["1F692", "소방차", "탈것", "d"], ["1F693", "경찰차", "탈것"], ["1F695", "택시", "탈것"],
     ["1F697", "자동차", "탈것", "d"], ["1F69C", "트랙터", "탈것", "d"], ["1F6B2", "자전거", "탈것"],
     ["1F3CD", "오토바이", "탈것", "d"], ["26F5", "돛단배", "탈것", "d"], ["2708", "비행기", "탈것"],
     ["1F681", "헬리콥터", "탈것", "d"], ["1F680", "로켓", "탈것"], ["1F6A2", "배", "탈것", "d"],
@@ -51,7 +52,7 @@
     ["1F355", "피자", "음식"], ["1F35F", "감자튀김", "음식"], ["1F32D", "핫도그", "음식"],
     ["1F96A", "샌드위치", "음식"], ["1F32E", "타코", "음식"], ["1F95A", "달걀", "음식"],
     ["1F9C0", "치즈", "음식"], ["1F37F", "팝콘", "음식"], ["1F9CB", "버블티", "음식"],
-    ["1F964", "음료컵", "음식"], ["2615", "커피", "음식", "d"], ["1FAD6", "주전자", "음식", "d"],
+    ["1F964", "음료컵", "음식"], ["2615", "커피", "음식"], ["1FAD6", "주전자", "음식", "d"],
     ["1F944", "숟가락", "음식"], ["1F374", "포크와 나이프", "음식"],
     // 시간
     ["23F0", "알람시계", "시간"], ["231A", "손목시계", "시간"], ["23F1", "스톱워치", "시간"],
@@ -102,5 +103,12 @@
   const toObj = (a) => ({ hex: a[0], name: a[1], cat: a[2], dir: a[3] === "d" });
   VP.ICONS = { kid: KID.map(toObj), teen: TEEN.map(toObj) };
   VP.ICON_BASE = VP.ICON_BASE || "icons/";
-  VP.iconUrl = (hex, line) => VP.ICON_BASE + (line ? "k/" : "c/") + hex + ".svg";
+  /* 그림 사실성 (Perkins 2D 이미지 평가의 위계: 사실적 컬러 → 단순 컬러 → 선화)
+   *  pic: "3d" | "flat" | "line"   lineTasks: 겹침·가림 과제를 "line"(선화) 또는 "real"(그림 종류를 따름)로 */
+  VP.STYLE = VP.STYLE || { pic: "3d", lineTasks: "line" };
+  VP.lineOn = (line) => VP.STYLE.pic === "line" || (line && VP.STYLE.lineTasks === "line");
+  VP.iconUrl = (hex, line) => {
+    if (VP.lineOn(line)) return VP.ICON_BASE + "k/" + hex + ".svg";
+    return VP.ICON_BASE + (VP.STYLE.pic === "3d" ? "r/" + hex + ".png" : "c/" + hex + ".svg");
+  };
 })(window.VP = window.VP || {});

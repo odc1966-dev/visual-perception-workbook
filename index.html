@@ -48,6 +48,9 @@
       <label class="tog"><input type="checkbox" id="optBig"> 큰 터치 (터치 범위 넓힘)</label>
       <label class="tog"><input type="checkbox" id="optScan"> 스위치 스캔 (자동으로 차례로 표시 → 스위치·화면 아무 곳이나 누르면 선택)</label>
       <div class="row sub"><span class="lbl">스캔 속도</span><input type="range" id="optScanSec" min="0.8" max="5" step="0.2"><output id="optScanOut"></output></div>
+      <div class="row"><span class="lbl">그림 종류</span><div class="seg" id="picSeg"><button data-v="3d">사실적 3D</button><button data-v="flat">단순 그림</button><button data-v="line">선화</button></div></div>
+      <div class="row"><span class="lbl">겹침·가림</span><div class="seg" id="lineSeg"><button data-v="line">선화 (검사 형식)</button><button data-v="real">위 그림 종류로</button></div></div>
+      <p class="hint">CVI 아동은 사실적 컬러 그림일수록 알아보기 쉽고, 선화가 가장 어렵습니다(Perkins 2D 이미지 평가).</p>
       <label class="tog"><input type="checkbox" id="optCvi"> 고대비·CVI (검은 배경, 밝은 선, 보기 시간 1.5배, 움직이는 강조)</label>
       <label class="tog"><input type="checkbox" id="optPen"> S펜 우선 (펜을 쓰는 동안 손바닥 터치 무시)</label>
       <label class="tog"><input type="checkbox" id="optSound"> 효과음</label>
@@ -103,7 +106,7 @@
   <h2>시지각 워크북</h2>
   <p>장애 소아청소년의 시지각 향상을 위한 치료용 워크북입니다. 인쇄용 워크북과 같은 문항이 나옵니다(쪽 번호가 같으면 같은 문항).</p>
   <p>끝내기: 활동 중 왼쪽 위 🏠를 1초 동안 누르세요.</p>
-  <p class="small">그림: OpenMoji (openmoji.org) — CC BY-SA 4.0. 격자·도형·미로 등은 프로그램으로 새로 만든 것입니다.</p>
+  <p class="small">사실적 3D 그림: Microsoft Fluent Emoji 3D — MIT License. 단순 그림·선화: OpenMoji (openmoji.org) — CC BY-SA 4.0. 격자·도형·미로 등은 프로그램으로 새로 만든 것입니다.</p>
   <button class="btn" onclick="this.closest('dialog').close()">닫기</button>
 </dialog>
 

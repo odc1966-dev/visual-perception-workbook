@@ -45,8 +45,10 @@
   // ---------- SVG 기본 ----------
   const f1 = (n) => Math.round(n * 100) / 100;
   VP.f1 = f1;
+  /* 입체감용 공통 정의: 위쪽 빛 반사(vpGloss)와 옅은 그림자(vpShadow) */
+  const DEFS = `<defs><linearGradient id="vpGloss" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.45" stop-color="#fff" stop-opacity="0.08"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient><filter id="vpShadow" x="-20%" y="-20%" width="150%" height="150%"><feDropShadow dx="0.35" dy="0.6" stdDeviation="0.55" flood-color="#000" flood-opacity="0.28"/></filter></defs>`;
   VP.svg = (w, h, inner, cls) =>
-    `<svg class="${cls || "it"}" viewBox="0 0 ${f1(w)} ${f1(h)}" data-w="${f1(w)}" data-h="${f1(h)}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${inner}</svg>`;
+    `<svg class="${cls || "it"}" viewBox="0 0 ${f1(w)} ${f1(h)}" data-w="${f1(w)}" data-h="${f1(h)}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${DEFS}${inner}</svg>`;
 
   /* 아이콘: x,y = 중심, s = 한 변. opt: line(선화), flip(좌우반전), rot(도), op(불투명도) */
   VP.icon = function (hex, x, y, s, opt) {
@@ -56,7 +58,10 @@
     if (opt.rot || opt.flip) {
       tf = ` transform="translate(${f1(x)} ${f1(y)})${opt.rot ? ` rotate(${opt.rot})` : ""}${opt.flip ? " scale(-1 1)" : ""} translate(${f1(-x)} ${f1(-y)})"`;
     }
-    return `<image href="${url}" x="${f1(x - s / 2)}" y="${f1(y - s / 2)}" width="${f1(s)}" height="${f1(s)}"${tf}${opt.op ? ` opacity="${opt.op}"` : ""}/>`;
+    const ln = VP.lineOn(opt.line);
+    // 겹침 과제를 사실적 그림으로 할 때는 곱하기 혼합으로 겹친 부분이 모두 보이게 한다
+    const blend = opt.line && !ln ? ` style="mix-blend-mode:multiply" opacity="0.88"` : "";
+    return `<image class="${ln ? "ln" : "pic"}"${blend} href="${url}" x="${f1(x - s / 2)}" y="${f1(y - s / 2)}" width="${f1(s)}" height="${f1(s)}"${tf}${opt.op ? ` opacity="${opt.op}"` : ""}/>`;
   };
 
   /* 선택 가능한 영역. 앱은 data-hit로 터치를 받고, 인쇄에서는 보이지 않는다 */
@@ -161,6 +166,12 @@
   }
   VP.shape = (type, cx, cy, r, opt) => {
     opt = opt || {};
+    // 색이 칠해진 도형은 빛 반사와 그림자로 입체감을 준다
+    if (opt.fill && opt.fill !== "none" && !opt.flat) {
+      const d = VP.shapeD(type, cx, cy, r, opt.rot, opt.sx);
+      const st = opt.stroke && opt.stroke !== "none" ? ` stroke="${opt.stroke}" stroke-width="${opt.sw == null ? 0.8 : opt.sw}"` : "";
+      return `<g filter="url(#vpShadow)"><path d="${d}" fill="${opt.fill}"${st} stroke-linejoin="round"/><path d="${d}" fill="url(#vpGloss)"/></g>`;
+    }
     return `<path d="${VP.shapeD(type, cx, cy, r, opt.rot, opt.sx)}" fill="${opt.fill || "none"}" stroke="${opt.stroke || "#222"}" stroke-width="${opt.sw == null ? 0.8 : opt.sw}" stroke-linejoin="round"/>`;
   };
 

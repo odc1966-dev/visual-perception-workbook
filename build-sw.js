@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const root = __dirname;
 const files = ["./", "index.html", "manifest.json", "css/app.css", "js/icons.js", "js/core.js", "js/tasks.js", "js/app.js", "icons/app-icon.svg", "icons/app-icon-512.png"];
-for (const d of ["icons/c", "icons/k"]) for (const f of fs.readdirSync(path.join(root, d))) files.push(`${d}/${f}`);
+for (const d of ["icons/r", "icons/c", "icons/k"]) for (const f of fs.readdirSync(path.join(root, d))) files.push(`${d}/${f}`);
 const ver = "vpwb-" + new Date().toISOString().replace(/\D/g, "").slice(0, 12);
 const sw = `/* 자동 생성 — build-sw.js */
 const CACHE = "${ver}";

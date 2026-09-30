@@ -10,7 +10,7 @@
   const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 
   let DB = load(LS, { children: [], sessions: [] });
-  const S = Object.assign({ theme: "kid", big: false, scan: false, scanSec: 2, cvi: false, pen: true, sound: true, tts: false, child: "", area: "A", level: 1, page: 1 }, load(LSS, {}));
+  const S = Object.assign({ pic: "3d", lineTasks: "line", theme: "kid", big: false, scan: false, scanSec: 2, cvi: false, pen: true, sound: true, tts: false, child: "", area: "A", level: 1, page: 1 }, load(LSS, {}));
   const saveS = () => save(LSS, S);
   const saveDB = () => save(LS, DB);
 
@@ -27,6 +27,7 @@
     if (!S.child && DB.children[0]) S.child = DB.children[0].code;
     segSet("#themeSeg", S.theme);
     segSet("#levelSeg", String(S.level));
+    segSet("#picSeg", S.pic); segSet("#lineSeg", S.lineTasks);
     $("#areaGrid").innerHTML = VP.AREA_ORDER.map((a) => `<button data-a="${a}" class="${a === S.area ? "on" : ""}" style="background:${VP.AREAS[a].color}"><b>${a}</b>${VP.AREAS[a].name[S.theme]}</button>`).join("");
     const done = new Set(DB.sessions.filter((x) => x.child === S.child && x.theme === S.theme && x.area === S.area && x.level === S.level).map((x) => x.page));
     $("#pageRow").innerHTML = [...Array(10)].map((_, i) => `<button data-p="${i + 1}" class="${S.page === i + 1 ? "on" : ""} ${done.has(i + 1) ? "done" : ""}">${i + 1}</button>`).join("");
@@ -46,6 +47,8 @@
       S.child = code; $("#childNew").value = ""; saveDB(); saveS(); renderHome();
     };
     $("#themeSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.theme = b.dataset.v; const c = DB.children.find((x) => x.code === S.child); if (c) { c.theme = S.theme; saveDB(); } saveS(); renderHome(); };
+    $("#picSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.pic = b.dataset.v; saveS(); renderHome(); };
+    $("#lineSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.lineTasks = b.dataset.v; saveS(); renderHome(); };
     $("#levelSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.level = +b.dataset.v; S.page = 1; saveS(); renderHome(); };
     $("#areaGrid").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.area = b.dataset.a; S.page = 1; saveS(); renderHome(); };
     $("#pageRow").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; S.page = +b.dataset.p; saveS(); renderHome(); };
@@ -109,6 +112,7 @@
   let P = null, cur = null, scanT = null, scanSel = null;
 
   function startPage() {
+    VP.STYLE = { pic: S.pic, lineTasks: S.lineTasks };
     const page = VP.makePage(S.area, S.level, S.theme, S.page);
     const items = page.items.filter((i) => i.mode !== "label");
     P = { page, items, idx: 0, results: [], t0: Date.now() };
