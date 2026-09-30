@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f2d4d">
+<meta name="mobile-web-app-capable" content="yes">
+<title>시지각 워크북</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/app-icon.svg">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- 치료사 시작 화면 -->
+<section id="home" class="screen on">
+  <header class="topbar">
+    <h1>시지각 워크북</h1>
+    <div class="sp"></div>
+    <button id="btnRecords" class="pill">📊 기록 보기</button>
+    <button id="btnInfo" class="pill">ⓘ</button>
+  </header>
+  <div class="home-body">
+    <div class="card">
+      <h2>아동</h2>
+      <div class="row">
+        <select id="childSel"></select>
+        <input id="childNew" placeholder="새 아동 코드 (예: A01)" maxlength="12">
+        <button id="childAdd" class="btn">추가</button>
+      </div>
+      <p class="hint">개인정보 보호를 위해 이름 대신 코드를 쓰세요. 기록은 이 태블릿에만 저장됩니다.</p>
+    </div>
+    <div class="card">
+      <h2>워크북</h2>
+      <div class="seg" id="themeSeg"><button data-v="kid">유아·초등 저학년</button><button data-v="teen">초등 고학년·청소년</button></div>
+      <div id="areaGrid" class="area-grid"></div>
+      <div class="row">
+        <span class="lbl">단계</span>
+        <div class="seg" id="levelSeg"><button data-v="1">★☆☆ 1</button><button data-v="2">★★☆ 2</button><button data-v="3">★★★ 3</button></div>
+      </div>
+      <div class="row">
+        <span class="lbl">쪽</span>
+        <div id="pageRow" class="pages"></div>
+      </div>
+      <button id="btnStart" class="btn big">▶ 시작</button>
+    </div>
+    <div class="card">
+      <h2>보조 설정</h2>
+      <label class="tog"><input type="checkbox" id="optBig"> 큰 터치 (터치 범위 넓힘)</label>
+      <label class="tog"><input type="checkbox" id="optScan"> 스위치 스캔 (자동으로 차례로 표시 → 스위치·화면 아무 곳이나 누르면 선택)</label>
+      <div class="row sub"><span class="lbl">스캔 속도</span><input type="range" id="optScanSec" min="0.8" max="5" step="0.2"><output id="optScanOut"></output></div>
+      <label class="tog"><input type="checkbox" id="optCvi"> 고대비·CVI (검은 배경, 밝은 선, 보기 시간 1.5배, 움직이는 강조)</label>
+      <label class="tog"><input type="checkbox" id="optPen"> S펜 우선 (펜을 쓰는 동안 손바닥 터치 무시)</label>
+      <label class="tog"><input type="checkbox" id="optSound"> 효과음</label>
+      <label class="tog"><input type="checkbox" id="optTts"> 지시문 읽어 주기</label>
+    </div>
+  </div>
+</section>
+
+<!-- 활동 화면 -->
+<section id="play" class="screen">
+  <header class="topbar play-bar">
+    <button id="btnHome" class="home-btn" title="길게 누르면 끝내기">🏠<i></i></button>
+    <div id="playTitle" class="ptitle"></div>
+    <div id="progress" class="progress"></div>
+    <button id="btnSpeak" class="pill">🔊</button>
+  </header>
+  <div id="instr" class="instr"></div>
+  <div id="stage" class="stage"></div>
+  <div id="tools" class="tools"></div>
+</section>
+
+<!-- 결과 -->
+<section id="result" class="screen">
+  <div class="result-card">
+    <div id="resEmoji" class="res-emoji"></div>
+    <h2 id="resTitle"></h2>
+    <div id="resStats" class="res-stats"></div>
+    <div class="row center">
+      <button id="btnAgain" class="btn">다시 하기</button>
+      <button id="btnNext" class="btn big">다음 쪽 ▶</button>
+      <button id="btnToHome" class="btn">처음으로</button>
+    </div>
+  </div>
+</section>
+
+<!-- 기록 -->
+<section id="records" class="screen">
+  <header class="topbar">
+    <button id="btnRecBack" class="pill">← 돌아가기</button>
+    <h1>기록</h1>
+    <div class="sp"></div>
+    <select id="recChild"></select>
+    <button id="btnDelChild" class="pill">🗑 이 아동 삭제</button>
+  </header>
+  <div class="rec-body">
+    <div class="card"><h2>영역·단계별 최근 정답률</h2><div id="recMatrix"></div><p class="hint">최근 3회 평균. 90% 이상을 두 번 연속 넘으면 다음 단계를 권합니다.</p></div>
+    <div class="card"><h2>회기 목록</h2><div id="recList"></div></div>
+  </div>
+</section>
+
+<!-- 정보 -->
+<dialog id="info">
+  <h2>시지각 워크북</h2>
+  <p>장애 소아청소년의 시지각 향상을 위한 치료용 워크북입니다. 인쇄용 워크북과 같은 문항이 나옵니다(쪽 번호가 같으면 같은 문항).</p>
+  <p>끝내기: 활동 중 왼쪽 위 🏠를 1초 동안 누르세요.</p>
+  <p class="small">그림: OpenMoji (openmoji.org) — CC BY-SA 4.0. 격자·도형·미로 등은 프로그램으로 새로 만든 것입니다.</p>
+  <button class="btn" onclick="this.closest('dialog').close()">닫기</button>
+</dialog>
+
+<script src="js/icons.js"></script>
+<script src="js/core.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
