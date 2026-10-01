@@ -37,7 +37,11 @@
     const hd = kid
       ? `<div class="hd"><div class="badge" style="background:${A.color}">${p.area}</div><div class="ttl">${A.name.kid}</div><div class="lv" style="color:${A.color}">${stars(p.level)}</div><div class="sp"></div>${rec}${mascot}</div>`
       : `<div class="hd"><div class="badge" style="background:${A.color}">${p.area}</div><div><div class="ttl">${A.name.teen}</div><div class="code">MISSION ${code}</div></div><div class="lv" style="color:${A.color}">${stars(p.level)}</div><div class="sp"></div>${rec}</div>`;
-    const items = p.items.map((it) => it.svg).join("");
+    // v2 장점 반영: 문항마다 카드 + 번호 배지 (한 쪽에 문항이 여러 개일 때)
+    const list = p.items.filter((it) => it.mode !== "label");
+    const multi = list.length > 1;
+    let no = 0;
+    const items = p.items.map((it) => it.mode === "label" ? it.svg : `<div class="card${multi ? "" : " single"}" data-mode="${it.mode}">${multi ? `<span class="num">${++no}</span>` : ""}${it.svg}</div>`).join("");
     return `<section class="page ${theme}" style="--acc:${A.color};--tint:${A.color}1c">${hd}<div class="instr">${p.instr}</div><div class="items">${items}</div><div class="ft"><span>시지각 워크북 · ${THEME_NAME[theme]}</span><span>${code}</span></div></section>`;
   }
 
@@ -55,7 +59,7 @@
     const nk = VP.AREAS[a].kinds[l].length;
     if (q.get("sample") === "new") {
       // 새로 추가한 유형만 한 쪽씩
-      const NEW = ["A_dots", "A_rows", "B_spot", "C_embed", "E_position", "E_symmetry", "F_pieces", "G_missing", "H_trace", "H_blocks"];
+      const NEW = q.get("kinds") ? q.get("kinds").split(",") : ["A_numPath", "A_trail", "B_seq", "B_rows", "D_pair", "F_pie"];
       for (let k = 1; k <= nk; k++) { const pg = VP.makePage(a, l, theme, k); if (NEW.includes(pg.kind)) pages.push(page(pg)); }
     } else if (sample) pages.push(page(VP.makePage(a, l, theme, kid ? 1 : 2)));
     else for (let n = p0; n <= p1; n++) pages.push(page(VP.makePage(a, l, theme, n)));
@@ -63,6 +67,34 @@
   if (q.get("log") === "1") pages.push(logSheet());
   if (q.get("credit") !== "0") pages.push(credit());
   book.innerHTML = pages.join("");
+
+  // 하나 고르기 문항: 선택지 아래에 ○ 표시 칸 (v2 장점 반영)
+  const NS = "http://www.w3.org/2000/svg";
+  document.querySelectorAll('.card[data-mode="one"] > svg').forEach((sv) => {
+    const hs = [...sv.querySelectorAll(".hit > .hitbox")].map((r) => ({ x: +r.getAttribute("x"), y: +r.getAttribute("y"), w: +r.getAttribute("width"), h: +r.getAttribute("height") }));
+    if (hs.length < 2) return;
+    const bottoms = hs.map((h) => h.y + h.h), maxB = Math.max(...bottoms);
+    const oneRow = Math.max(...bottoms) - Math.min(...bottoms) < 3 && hs.every((h, i) => !i || Math.abs(h.x - hs[i - 1].x) > 3);
+    if (!oneRow) return;
+    const vb = sv.getAttribute("viewBox").split(" ").map(Number);
+    const extra = 6;
+    vb[3] = Math.max(vb[3], maxB + extra);
+    sv.setAttribute("viewBox", vb.join(" "));
+    hs.forEach((h) => {
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", h.x + h.w / 2); c.setAttribute("cy", maxB + 3); c.setAttribute("r", 2.2);
+      c.setAttribute("fill", "#fff"); c.setAttribute("stroke", "#868e96"); c.setAttribute("stroke-width", 0.35);
+      sv.appendChild(c);
+    });
+  });
+
+  // 문항이 넘치는 쪽은 그림 폭을 줄여 한 쪽에 맞춘다
+  document.querySelectorAll(".page .items").forEach((box) => {
+    for (let t = 0; t < 4 && box.scrollHeight > box.clientHeight + 1; t++) {
+      const k = box.clientHeight / box.scrollHeight;
+      box.querySelectorAll("svg.it").forEach((sv) => { const w = sv.getBoundingClientRect().width; sv.style.width = w * k * 0.98 + "px"; });
+    }
+  });
 
   // 모든 그림이 로드되면 표시 (인쇄 스크립트가 기다린다)
   const imgs = [...document.images];

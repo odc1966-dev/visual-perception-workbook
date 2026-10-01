@@ -323,7 +323,7 @@
         if (h.id === "d" + k) {
           if (k > 0) line(byId["d" + (k - 1)], h);
           markRect(M, h, "mk-ok"); sound("ok"); k++;
-          if (k >= n) { line(h, byId.d0); done({ ok: errors <= 1, errors }); }
+          if (k >= n) { if (!it.open) line(h, byId.d0); done({ ok: errors <= 1, errors }); }
         } else if (+h.id.slice(1) > k) { flash(M, h); errors++; sound("bad"); }
       };
       onTap(M, pick);

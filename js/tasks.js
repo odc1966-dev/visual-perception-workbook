@@ -1091,14 +1091,266 @@
     return { instr: ctx.kid ? "왼쪽 무늬와 똑같이 오른쪽 칸을 칠해 보세요. 반쪽만 칠한 칸도 있어요." : "왼쪽 블록 무늬를 오른쪽에 똑같이 칠하세요. 삼각형(반 칸)의 방향에 주의하세요.", items };
   }
 
+  // =====================================================================
+  // 추가 활동 2 (2026-10-01, 사용자 제공 치료자료의 '과제 형식'만 참고해 새로 생성)
+  //  - 숫자 길 미로·순서대로 잇기: 주의·탐색 (시지각 워크북 스캔본, 기초인지워크북2의 형식)
+  //  - 패턴 이어 가기·두 줄 비교: 변별 (시지각 훈련 프로그램의 줄 비교 형식)
+  //  - 같은 것끼리 짝 잇기: 형태 항상성
+  //  - 원 조각 맞추기: 시각 완성
+  // =====================================================================
+
+  // ---------- A. 숫자(그림) 길 미로 ----------
+  function A_numPath(ctx) {
+    const { r, level, kid } = ctx;
+    const [cols, rows] = [[0, 0], [5, 5], [7, 6], [9, 7]][level];
+    const cs = [0, 22, 19, 16.5][level];
+    // 출발(왼쪽)부터 도착(오른쪽)까지, 앞뒤 칸 말고는 서로 닿지 않는 길
+    let path;
+    for (let t = 0; t < 500; t++) {
+      const start = [0, r.int(0, rows - 1)];
+      const p = [start], seen = new Set([start.join()]);
+      let ok = true;
+      while (p[p.length - 1][0] < cols - 1) {
+        const [x, y] = p[p.length - 1];
+        const opts = r.shuffle([[1, 0], [1, 0], [0, 1], [0, -1]]).map(([dx, dy]) => [x + dx, y + dy])
+          .filter(([a, b]) => a < cols && b >= 0 && b < rows && !seen.has(a + "," + b))
+          .filter(([a, b]) => p.slice(0, -1).every(([c, d]) => Math.abs(c - a) + Math.abs(d - b) > 1));
+        if (!opts.length) { ok = false; break; }
+        p.push(opts[0]); seen.add(opts[0].join());
+        if (p.length > cols * rows) { ok = false; break; }
+      }
+      if (ok && p.length >= cols + (level - 1) * 2) { path = p; break; }
+    }
+    const onPath = new Set(path.map((q) => q.join()));
+    let tgt, others, draw;
+    if (kid) {
+      const t = pool(ctx, 1)[0];
+      const ds = level === 3 ? similar(ctx, t, 4) : pool(ctx, 4, { not: [t.hex] });
+      tgt = t; others = ds;
+      draw = (g, x, y) => icon(g.hex, x, y, cs * 0.72);
+    } else {
+      const sets = [null, ["1", "4", "7", "2", "5"], ["6", "9", "3", "5", "2", "8"], ["6", "8", "9", "3", "0", "5"]];
+      const set = sets[level];
+      tgt = r.pick(set); others = set.filter((d) => d !== tgt);
+      draw = (g, x, y) => text(x, y, g, cs * 0.6, { fill: "#222", weight: 700, font: "Arial, 'Malgun Gothic', sans-serif" });
+    }
+    const ox = (W - cols * cs) / 2, oy = 4;
+    let s = "";
+    const answer = [];
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const id = "c" + (y * cols + x), on = onPath.has(x + "," + y);
+      const g = on ? tgt : r.pick(others);
+      const X = ox + x * cs, Y = oy + y * cs;
+      s += hit(id, X, Y, cs, cs, `<rect x="${f1(X)}" y="${f1(Y)}" width="${f1(cs)}" height="${f1(cs)}" fill="#fff" stroke="${ctx.accent}" stroke-width="0.4"/>` + draw(g, X + cs / 2, Y + cs / 2), 0);
+      if (on) answer.push(id);
+    }
+    // 출발·도착 화살표 (찾을 숫자·그림을 함께 보여 줌)
+    const sy = oy + path[0][1] * cs + cs / 2, ey = oy + path[path.length - 1][1] * cs + cs / 2;
+    const tab = (x, y, dir) => `<path d="M${f1(x)} ${f1(y - cs * 0.42)}h${f1(dir * cs * 0.55)}l${f1(dir * cs * 0.3)} ${f1(cs * 0.42)}l${f1(-dir * cs * 0.3)} ${f1(cs * 0.42)}h${f1(-dir * cs * 0.55)}z" fill="#fff" stroke="${ctx.accent}" stroke-width="0.9"/>`;
+    s += tab(ox - cs * 0.9, sy, 1) + draw(tgt, ox - cs * 0.55, sy);
+    s += tab(ox + cols * cs + cs * 0.9, ey, -1) + draw(tgt, ox + cols * cs + cs * 0.55, ey);
+    return {
+      instr: kid ? "왼쪽 그림과 같은 그림만 밟고 오른쪽까지 가요. 길이 되는 칸을 칠해 보세요." : "왼쪽 화살표의 숫자만 따라 오른쪽 화살표까지 가는 길을 찾아 칸을 칠하세요. (가로·세로로만 이어져요)",
+      items: [{ svg: svg(W, rows * cs + 8, s), mode: "all", answer }],
+    };
+  }
+
+  // ---------- A. 순서대로 잇기 (트레일 형식) ----------
+  function A_trail(ctx) {
+    const { r, level, kid } = ctx;
+    let labels, colorSeq = null;
+    if (kid && level === 1) {
+      colorSeq = r.sample(VP.PALETTE.kid.cell.concat(["#cc5de8", "#f783ac"]), 5);
+      labels = colorSeq.map(() => "");
+    } else if (!kid && level === 3) {
+      const ko = ["가", "나", "다", "라", "마", "바", "사"];
+      labels = [];
+      for (let i = 0; i < 7; i++) labels.push(String(i + 1), ko[i]);
+    } else {
+      const n = kid ? [0, 0, 10, 15][level] : [0, 15, 25][level];
+      labels = [...Array(n).keys()].map((i) => String(i + 1));
+    }
+    const n = labels.length, h = 200, band = colorSeq ? 26 : 0;
+    const pts = VP.scatter(r, n, W, h - band, n > 15 ? 21 : 26, 8).map((p) => [p[0], p[1] + band]);
+    const R = n > 15 ? 4.6 : colorSeq ? 7 : 5.6;
+    let s = "";
+    if (colorSeq) {
+      s += box(0, 0, W, 20, { fill: ctx.tint, stroke: ctx.accent, sw: 0.5 }) + text(22, 10, "이 순서로", 5, { fill: ctx.accent });
+      colorSeq.forEach((c, i) => { s += `<circle cx="${f1(52 + i * 22)}" cy="10" r="5.5" fill="${c}"/>`; if (i < colorSeq.length - 1) s += text(63 + i * 22, 10, "→", 4.5, { fill: "#999" }); });
+    }
+    pts.forEach((p, i) => {
+      const fill = colorSeq ? colorSeq[i] : "#fff";
+      const inner = `<circle cx="${f1(p[0])}" cy="${f1(p[1])}" r="${R}" fill="${fill}" stroke="${colorSeq ? "none" : "#333"}" stroke-width="0.5"${colorSeq ? ' filter="url(#vpShadow)"' : ""}/>` + (labels[i] ? text(p[0], p[1], labels[i], R * 0.95, { fill: "#222" }) : "");
+      s += hit("d" + i, p[0] - R - 1, p[1] - R - 1, R * 2 + 2, R * 2 + 2, inner, R);
+    });
+    const instr = colorSeq ? "위에 있는 색 순서대로 동그라미를 선으로 이어 보세요."
+      : !kid && level === 3 ? "1 → 가 → 2 → 나 → 3 → 다 … 처럼 숫자와 글자를 번갈아 순서대로 이으세요."
+      : `1부터 ${n}까지 순서대로 동그라미를 선으로 이으세요.${kid ? "" : " 걸린 시간을 적어 보세요."}`;
+    return { instr, items: [{ svg: svg(W, h + 4, s), mode: "dots", answer: n, open: true }] };
+  }
+
+  // ---------- B. 패턴 이어 가기 ----------
+  function B_seq(ctx) {
+    const { r, level, kid } = ctx;
+    const items = [];
+    const cellW = 15.5, h = 30, shown = level === 1 ? 5 : 6, esz = 13.5;
+    for (let k = 0; k < 5; k++) {
+      let seq, choices, drawE;
+      if (level < 3) {
+        const unitPat = level === 1 ? "AB" : r.pick(["ABC", "AAB", "ABB", "ABCC"]);
+        const letters = [...new Set(unitPat)];
+        const els = kid ? pool(ctx, letters.length + 2) : r.sample(["circle", "square", "triangle", "star", "heart", "diamond", "cross", "hexagon"], letters.length + 2);
+        const colors = r.sample(VP.PALETTE[ctx.theme].fills, letters.length + 2);
+        const map = Object.fromEntries(letters.map((l, i) => [l, i]));
+        seq = [...Array(shown + 1).keys()].map((i) => map[unitPat[i % unitPat.length]]);
+        drawE = kid ? (e, x, y, sz) => icon(els[e].hex, x, y, sz) : (e, x, y, sz) => shape(els[e], x, y, sz * 0.42, { fill: colors[e], stroke: "none", sw: 0 });
+        const ans = seq[shown];
+        choices = r.shuffle([ans].concat(r.sample([...Array(letters.length + 2).keys()].filter((i) => i !== ans), 3)));
+        choices = choices.map((e) => ({ e, ok: e === ans }));
+      } else {
+        // 3단계: 한 방향으로 일정하게 도는 모양 (회전 규칙 찾기)
+        const type = r.pick(["arrow", "flag", "lshape", "tshape"]);
+        const step = r.pick([45, 90, -45, -90]), a0 = r.pick([0, 45, 90, 180]);
+        const color = kid ? r.pick(VP.PALETTE.kid.fills) : "#1c7ed6";
+        seq = [...Array(shown + 1).keys()].map((i) => a0 + i * step);
+        drawE = (e, x, y, sz) => shape(type, x, y, sz * 0.4, { rot: e.rot != null ? e.rot : e, sx: e.sx || 1, fill: color, stroke: "none", sw: 0 });
+        const ans = seq[shown];
+        // 화살표·T자는 좌우 대칭이라 뒤집으면 정답과 같아질 수 있어 바로 앞 단계 모양으로 대신한다
+        const sym = type === "arrow" || type === "tshape";
+        const opts = [{ rot: ans }, { rot: ans + step }, { rot: ans - step * 2 }, sym ? { rot: ans - step } : { rot: ans, sx: -1 }];
+        choices = r.shuffle(opts.map((o, i) => ({ e: o, ok: i === 0 })));
+      }
+      let s = "";
+      for (let i = 0; i < shown; i++) s += drawE(seq[i], 4 + cellW * i + cellW / 2, h / 2, esz);
+      const qx = 4 + cellW * shown;
+      s += box(qx + 1, h / 2 - 9, cellW - 2, 18, { stroke: ctx.accent, sw: 0.7, dash: "1.5 1", rx: 3 }) + text(qx + cellW / 2, h / 2, "?", 8, { fill: ctx.accent });
+      const x0 = Math.max(qx + cellW + 8, 112);
+      s += divider(x0 - 4, h);
+      const cw = (W - x0) / 4;
+      const answer = [];
+      choices.forEach((c, i) => {
+        s += hit(i, x0 + cw * i + 1, 3, cw - 2, h - 6, drawE(c.e, x0 + cw * i + cw / 2, h / 2, esz));
+        if (c.ok) answer.push(i);
+      });
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: ctx.kid ? "규칙을 찾아 ? 에 들어갈 것을 오른쪽에서 골라 ○ 하세요." : level === 3 ? "모양이 도는 규칙을 찾아 ? 에 올 모양을 고르세요." : "반복 규칙을 찾아 ? 에 들어갈 것을 오른쪽에서 고르세요.", items };
+  }
+
+  // ---------- B. 두 줄 비교하기 ----------
+  function B_rows(ctx) {
+    const { r, level, kid } = ctx;
+    const n = [0, 3, 5, 6][level], rowsN = 7, h = 24;
+    const items = [];
+    let s = "";
+    const answer = [];
+    const half = (W - 14) / 2, cw = Math.min(16, (half - 6) / n);
+    const glyphSets = [["b", "d", "p", "q"], ["가", "거", "고", "구"], ["6", "9", "8", "3"], ["E", "F", "B", "P"], ["m", "n", "u", "w"]];
+    const gset = r.pick(glyphSets);
+    const diffRows = r.sample([...Array(rowsN).keys()], r.int(2, 4)); // 다른 줄은 2~4개
+    for (let k = 0; k < rowsN; k++) {
+      let L, draw;
+      if (kid || level < 3) {
+        const els = kid ? pool(ctx, 6) : r.sample(["circle", "square", "triangle", "star", "heart", "diamond", "cross", "hexagon", "pentagon"], 6);
+        const colors = VP.PALETTE[ctx.theme].fills;
+        L = [...Array(n)].map(() => r.int(0, 5));
+        const col = L.map(() => r.int(0, colors.length - 1));
+        draw = (arr, x0, y) => arr.map((e, i) => kid ? icon(els[e % 6].hex, x0 + cw * i + cw / 2, y, cw * 0.82) : shape(els[e % 6], x0 + cw * i + cw / 2, y, cw * 0.36, { fill: colors[col[i] % colors.length], stroke: "none", sw: 0 })).join("");
+      } else {
+        L = [...Array(n)].map(() => r.int(0, gset.length - 1));
+        draw = (arr, x0, y) => arr.map((e, i) => text(x0 + cw * i + cw / 2, y, gset[e % gset.length], 9, { fill: "#222", weight: 400, font: "Arial, 'Malgun Gothic', sans-serif" })).join("");
+      }
+      const mod = kid || level < 3 ? 6 : gset.length;
+      let R = L.slice();
+      if (diffRows.includes(k)) {
+        if (r.chance(0.5) && n > 2) { const i = r.int(0, n - 2); [R[i], R[i + 1]] = [R[i + 1], R[i]]; }
+        if (R.join() === L.join()) { const i = r.int(0, n - 1); R[i] = (R[i] + 1 + r.int(0, mod - 2)) % mod; }
+      }
+      const y = k * h + h / 2;
+      s += `<text x="2" y="${f1(y)}" font-size="4" dominant-baseline="central" fill="#999" font-family="'Malgun Gothic'">${k + 1}</text>`;
+      s += box(8, y - h / 2 + 2, half - 2, h - 4, { stroke: "#ced4da", rx: 2 }) + draw(L, 10, y);
+      const rx = 8 + half + 6;
+      const isDiff = R.join() !== L.join();
+      s += hit("r" + k, rx, y - h / 2 + 2, half - 2, h - 4, box(rx, y - h / 2 + 2, half - 2, h - 4, { stroke: "#ced4da", rx: 2 }) + draw(R, rx + 2, y));
+      if (isDiff) answer.push("r" + k);
+    }
+    items.push({ svg: svg(W, rowsN * h, s), mode: "all", answer });
+    return { instr: ctx.kid ? "왼쪽과 오른쪽을 비교해서, 다른 줄의 오른쪽에 ○ 하세요." : "줄마다 왼쪽과 오른쪽을 비교해 하나라도 다른 줄의 오른쪽에 ○ 표시하세요.", items };
+  }
+
+  // ---------- D. 같은 것끼리 짝 잇기 ----------
+  function D_pair(ctx) {
+    const { r, level } = ctx;
+    const n = 5, h = 200;
+    const ics = pool(ctx, n);
+    const perm = r.shuffle([...Array(n).keys()]);
+    const ys = (k) => (h / (n + 1)) * (k + 1);
+    let s = "";
+    for (let i = 0; i < n; i++) {
+      s += icon(ics[i].hex, 17, ys(i), 24) + `<circle cx="34" cy="${f1(ys(i))}" r="1.6" fill="#333"/>`;
+    }
+    // 오른쪽: 같은 그림을 크기·방향·선화로 바꿔 섞어 놓음
+    for (let j = 0; j < n; j++) {
+      const i = perm.indexOf(j);
+      const sz = level === 1 ? r.range(14, 30) : r.range(16, 28);
+      const rot = level === 1 ? 0 : r.int(-150, 150);
+      const line = level === 3 ? r.chance(0.6) : false;
+      s += `<circle cx="146" cy="${f1(ys(j))}" r="1.6" fill="#333"/>`;
+      s += hit("e" + j, 150, ys(j) - 16, 30, 32, icon(ics[i].hex, 165, ys(j), sz, { rot, line }));
+    }
+    const answer = [...Array(n).keys()].map((i) => perm[i]);
+    return { instr: ctx.kid ? "왼쪽 그림과 같은 그림을 오른쪽에서 찾아 점과 점을 선으로 이어요." : "크기·방향·색이 달라도 같은 물건끼리 점을 선으로 이으세요.", items: [{ svg: svg(W, h, s), mode: "track", answer }] };
+  }
+
+  // ---------- F. 원 조각 맞추기 ----------
+  function sectorD(cx, cy, R, a0, a1) {
+    const rad = (a) => ((a - 90) * Math.PI) / 180;
+    const p = (a) => [cx + R * Math.cos(rad(a)), cy + R * Math.sin(rad(a))];
+    const [x0, y0] = p(a0), [x1, y1] = p(a1);
+    const large = a1 - a0 > 180 ? 1 : 0;
+    return `M${f1(cx)} ${f1(cy)}L${f1(x0)} ${f1(y0)}A${R} ${R} 0 ${large} 1 ${f1(x1)} ${f1(y1)}Z`;
+  }
+  function F_pie(ctx) {
+    const { r, level, kid } = ctx;
+    const items = [];
+    const color = kid ? r.pick(["#4c6ef5", "#f76707", "#2f9e44", "#e64980"]) : "#1f3a93";
+    const h = 44, R = 16;
+    for (let k = 0; k < 4; k++) {
+      const unit = level === 1 ? 90 : 45;
+      const span = level === 1 ? 90 : unit * r.int(1, 3);
+      const a0 = level === 1 ? r.pick([0, 90, 180, 270]) : unit * r.int(0, 7);
+      const piece = (a, sp, cx, cy) => {
+        const mid = ((a + sp / 2 - 90) * Math.PI) / 180;
+        const off = R * 0.38;
+        return `<path d="${sectorD(cx - Math.cos(mid) * off, cy - Math.sin(mid) * off, R, a, a + sp)}" fill="${color}" filter="url(#vpShadow)"/><path d="${sectorD(cx - Math.cos(mid) * off, cy - Math.sin(mid) * off, R, a, a + sp)}" fill="url(#vpGloss)"/>`;
+      };
+      let s = box(1, 1, 44, h - 2, { fill: "#fff", stroke: ctx.accent, sw: 0.6 });
+      s += `<path d="${sectorD(23, h / 2, R, a0 + span, a0 + 360)}" fill="${color}" filter="url(#vpShadow)"/><path d="${sectorD(23, h / 2, R, a0 + span, a0 + 360)}" fill="url(#vpGloss)"/>`;
+      s += `<path d="${sectorD(23, h / 2, R, a0, a0 + span)}" fill="none" stroke="#adb5bd" stroke-width="0.5" stroke-dasharray="1.2 1"/>`;
+      const wrong = [];
+      const seen = new Set([a0 + "," + span]);
+      const cand = level === 1
+        ? [[a0, 180], [a0 + 90, 90], [a0, 45], [a0 + 180, 90], [a0 - 90, 90]]
+        : [[a0 + unit, span], [a0 - unit, span], [a0, span + unit], [a0, Math.max(unit, span - unit)], [a0 + 180, span], [a0 + unit, span + unit]];
+      for (const c of r.shuffle(cand)) { const key = (((c[0] % 360) + 360) % 360) + "," + c[1]; if (!seen.has(key) && wrong.length < 3) { seen.add(key); wrong.push(c); } }
+      const choices = r.shuffle([[a0, span, true]].concat(wrong.map((w) => [w[0], w[1], false])));
+      const L = rowLayout(4, 46, h);
+      s += divider(L.x0 - 4, h);
+      const answer = [];
+      choices.forEach((c, i) => { s += hit(i, L.cx(i) - 17, 4, 34, h - 8, piece(c[0], c[1], L.cx(i), h / 2)); if (c[2]) answer.push(i); });
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: ctx.kid ? "동그라미에서 빠진 조각을 오른쪽에서 찾아 ○ 하세요. (모양과 방향이 꼭 맞아야 해요)" : "원에서 빠진 조각과 크기·방향이 정확히 맞는 조각을 고르세요.", items };
+  }
+
   // ================= 영역 정의 =================
   VP.AREAS = {
-    A: { name: { kid: "꼼꼼히 찾기", teen: "시각 주의·탐색" }, full: "시각 주의·탐색", color: "#e8590c", kinds: { 1: [A_cancel, A_track, A_dots], 2: [A_cancel, A_track, A_rows, A_dots], 3: [A_cancel, A_track, A_rows, A_dots] } },
-    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot], 2: [B_match, B_odd, B_spot], 3: [B_match, B_odd, B_spot] } },
+    A: { name: { kid: "꼼꼼히 찾기", teen: "시각 주의·탐색" }, full: "시각 주의·탐색", color: "#e8590c", kinds: { 1: [A_cancel, A_track, A_dots, A_numPath, A_trail], 2: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail], 3: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail] } },
+    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot, B_seq, B_rows], 2: [B_match, B_odd, B_spot, B_seq, B_rows], 3: [B_match, B_odd, B_spot, B_seq, B_rows] } },
     C: { name: { kid: "숨은 그림 찾기", teen: "전경-배경 구분" }, full: "전경-배경(도형-배경)", color: "#2f9e44", kinds: { 1: [C_overlap, C_shapes], 2: [C_overlap, C_shapes, C_embed], 3: [C_overlap, C_hidden, C_embed] } },
-    D: { name: { kid: "모양 알아보기", teen: "형태 항상성" }, full: "형태 항상성", color: "#0c8599", kinds: { 1: [D_shapes, D_icons], 2: [D_shapes, D_icons], 3: [D_patterns, D_icons, D_shapes] } },
+    D: { name: { kid: "모양 알아보기", teen: "형태 항상성" }, full: "형태 항상성", color: "#0c8599", kinds: { 1: [D_shapes, D_icons, D_pair], 2: [D_shapes, D_icons, D_pair], 3: [D_patterns, D_icons, D_shapes, D_pair] } },
     E: { name: { kid: "방향 알아보기", teen: "공간 관계" }, full: "공간 관계", color: "#1c7ed6", kinds: { 1: [E_oddFlip, E_sameDir, E_position], 2: [E_sameDir, E_glyphs, E_position, E_symmetry], 3: [E_rotate, E_rotIcon, E_symmetry] } },
-    F: { name: { kid: "무엇일까요?", teen: "시각 완성" }, full: "시각 통합(시각 완성)", color: "#7048e8", kinds: { 1: [(c) => F_mask(c, "side"), F_gapShape, F_pieces], 2: [(c) => F_mask(c, "blocks"), F_gapShape, F_pieces], 3: [(c) => F_mask(c, "blocksHard"), (c) => F_mask(c, "stripes"), F_pieces] } },
+    F: { name: { kid: "무엇일까요?", teen: "시각 완성" }, full: "시각 통합(시각 완성)", color: "#7048e8", kinds: { 1: [(c) => F_mask(c, "side"), F_gapShape, F_pieces, F_pie], 2: [(c) => F_mask(c, "blocks"), F_gapShape, F_pieces, F_pie], 3: [(c) => F_mask(c, "blocksHard"), (c) => F_mask(c, "stripes"), F_pieces, F_pie] } },
     G: { name: { kid: "기억하기", teen: "시각 기억" }, full: "시각 기억", color: "#d6336c", kinds: { 1: [G_icons, G_position, G_missing], 2: [G_icons, G_position, G_missing], 3: [G_sequence, G_position, G_missing] } },
     H: { name: { kid: "따라 그리기", teen: "시각-운동 협응" }, full: "시각-운동 협응", color: "#8f5b1f", kinds: { 1: [H_trace, H_copy, H_cells, H_path], 2: [H_trace, H_copy, H_path, H_blocks, H_maze], 3: [H_trace, H_copy, (c) => H_copy(c, true), H_maze, H_blocks] } },
   };

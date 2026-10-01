@@ -34,7 +34,17 @@ html, body { margin: 0; padding: 0; background: #e9ecef; font-family: "Malgun Go
 
 .items { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; align-items: center; min-height: 0; }
 .items svg.it { width: 180mm; height: auto; display: block; overflow: visible; }
+.items { overflow: hidden; padding: 2.2mm 0 0 2.2mm; }
 .hitbox { fill: none; stroke: none; }
+/* 문항 카드 (v2 디자인 장점 반영) */
+.card { position: relative; width: 100%; display: flex; justify-content: center; border: .35mm solid #e3e6ea; border-radius: 4mm; padding: 2.2mm 3mm; background: #fff; }
+.card.single { border: 0; padding: 0; }
+.card + .card { margin-top: 2mm; }
+.card svg.it { width: 169mm; }
+.card.single svg.it { width: 177mm; }
+.card .num { position: absolute; left: -2mm; top: -2mm; width: 6.4mm; height: 6.4mm; border-radius: 50%; background: var(--acc); color: #fff; font-size: 3.5mm; font-weight: 800; display: grid; place-items: center; box-shadow: 0 .3mm .8mm rgba(0,0,0,.2); }
+.kid .card { border-color: var(--tint); border-width: .6mm; }
+.teen .card .num { border-radius: 1.5mm; }
 
 .ft { flex: none; display: flex; justify-content: space-between; font-size: 2.7mm; color: #999; padding-top: 2mm; }
 
