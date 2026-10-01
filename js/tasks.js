@@ -321,7 +321,9 @@
       let s = sampleBox(ctx, 36, 40) + icon(t.hex, 18, 20, 26) + divider(L.x0 - 4, 40);
       const answer = [];
       list.forEach((ic, i) => {
-        const sz = r.range(level === 1 ? 14 : 12, 26);
+        // 돌린 그림이 옆 칸을 넘지 않게 칸 폭에 맞춰 크기 상한을 둔다
+        const maxS = Math.min(26, L.cw * (level === 1 ? 0.9 : 0.74));
+        const sz = r.range(maxS * 0.5, maxS);
         const line = level >= 2 ? r.chance(0.5) : r.chance(0.3);
         const rot = level === 1 ? 0 : r.int(-160, 160);
         s += hit(i, L.cx(i) - L.cw / 2 + 1, 3, L.cw - 2, 34, icon(ic.hex, L.cx(i), 20, sz, { line, rot }));
@@ -1008,8 +1010,10 @@
       const choices = r.shuffle([gone].concat(similar(ctx, gone, 1, shown.map((x) => x.hex)), r.sample(rest, 2)));
       let ask = "";
       rest.forEach((ic, i) => (ask += icon(ic.hex, 8 + i * 15, 11, 12)));
-      ask += text(2, 34, "없어진 것은?", 3.4, { anchor: "start", fill: ctx.accent });
-      choices.forEach((c, i) => (ask += hit(i, 28 + i * 22, 36 - 8 + 6, 20, 20, icon(c.hex, 38 + i * 22, 44, 17))));
+      ask += text(2, 26, "없어진 것은?", 4.6, { anchor: "start", fill: ctx.accent });
+      // 선택지는 오른쪽 칸 폭 안에 고르게 (보기 그림이 많아도 넘치지 않게)
+      const aw = W - showW - 9, ccw = Math.min(22, (aw - 26) / 4), cis = Math.min(17, ccw - 2);
+      choices.forEach((c, i) => (ask += hit(i, 26 + i * ccw, 34, ccw - 1, 20, icon(c.hex, 26 + i * ccw + ccw / 2, 44, cis))));
       items.push(memRow(ctx, showW, h, showI, ask, { answer: [choices.indexOf(gone)], sub: "one", showSec: level === 1 ? 4 : 6 }));
     }
     return { instr: kid ? "왼쪽 그림들을 잘 보고 가려요. 오른쪽 위에서 하나가 없어졌어요. 없어진 그림에 ○ 하세요." : "왼쪽을 기억하고 가리세요. 오른쪽 위에 남은 그림을 보고, 없어진 하나를 아래에서 골라 ○ 표시하세요.", items };
@@ -1292,7 +1296,7 @@
     // 오른쪽: 같은 그림을 크기·방향·선화로 바꿔 섞어 놓음
     for (let j = 0; j < n; j++) {
       const i = perm.indexOf(j);
-      const sz = level === 1 ? r.range(14, 30) : r.range(16, 28);
+      const sz = level === 1 ? r.range(16, 30) : r.range(18, 28);
       const rot = level === 1 ? 0 : r.int(-150, 150);
       const line = level === 3 ? r.chance(0.6) : false;
       s += `<circle cx="146" cy="${f1(ys(j))}" r="1.6" fill="#333"/>`;
@@ -1343,10 +1347,56 @@
     return { instr: ctx.kid ? "동그라미에서 빠진 조각을 오른쪽에서 찾아 ○ 하세요. (모양과 방향이 꼭 맞아야 해요)" : "원에서 빠진 조각과 크기·방향이 정확히 맞는 조각을 고르세요.", items };
   }
 
+  // ---------- B. 크기·길이 비교 (사용자 제공 '크기, 길이, 무게, 양' 활동지의 형식 참고) ----------
+  function B_size(ctx) {
+    const { r, level, kid } = ctx;
+    const items = [];
+    const n = level === 1 ? 4 : 5, h = 40;
+    // 단계가 오를수록 크기 차이가 작아진다 (1단계 약 35%, 2단계 18%, 3단계 9%)
+    const gap = [0, 0.35, 0.18, 0.09][level];
+    const qs = [];
+    for (let k = 0; k < 5; k++) qs.push(r.pick(level === 1 ? ["big", "small", "long", "short"] : ["big", "small", "long", "short", "tall"]));
+    const LABEL = { big: "가장 큰 것", small: "가장 작은 것", long: "가장 긴 것", short: "가장 짧은 것", tall: "키가 가장 큰 것" };
+    const colors = VP.PALETTE[ctx.theme].fills;
+    for (const q of qs) {
+      const scales = [];
+      let s0 = 1;
+      for (let i = 0; i < n; i++) { scales.push(s0); s0 *= 1 - gap * r.range(0.9, 1.15); }
+      const order = r.shuffle(scales.map((v, i) => i));
+      const want = q === "big" || q === "long" || q === "tall" ? 0 : n - 1; // 0 = 가장 큼
+      const L = rowLayout(n, 40, h);
+      let s = box(1, 4, 38, h - 8, { fill: ctx.tint, stroke: ctx.accent, sw: 0.6 }) + text(20, h / 2, LABEL[q], q === "tall" ? 4.4 : kid ? 5.4 : 5, { fill: ctx.accent });
+      s += divider(L.x0 - 4, h);
+      const answer = [];
+      const ic = pool(ctx, 1)[0];
+      const col = r.pick(colors);
+      order.forEach((si, i) => {
+        const sc = scales[si], cx = L.cx(i);
+        let inner;
+        if (q === "long" || q === "short") {
+          // 길이: 같은 굵기의 막대(연필 모양)를 길이만 다르게
+          const len = (L.cw - 4) * sc, x0 = cx - len / 2, y0 = h / 2 - 2.6;
+          inner = `<g filter="url(#vpShadow)"><rect x="${f1(x0)}" y="${f1(y0)}" width="${f1(len - 4)}" height="5.2" rx="1" fill="${col}"/><path d="M${f1(x0 + len - 4)} ${f1(y0)}l4 2.6l-4 2.6z" fill="#f1c27d"/><rect x="${f1(x0)}" y="${f1(y0)}" width="${f1(len - 4)}" height="5.2" rx="1" fill="url(#vpGloss)"/></g>`;
+        } else if (q === "tall") {
+          // 키: 아래를 맞춘 기둥 높이 비교
+          const hh = (h - 10) * sc, y1 = h - 5;
+          inner = `<g filter="url(#vpShadow)"><rect x="${f1(cx - 4)}" y="${f1(y1 - hh)}" width="8" height="${f1(hh)}" rx="1.5" fill="${col}"/><rect x="${f1(cx - 4)}" y="${f1(y1 - hh)}" width="8" height="${f1(hh)}" rx="1.5" fill="url(#vpGloss)"/></g>`;
+        } else {
+          // 크기: 같은 그림을 크기만 다르게 (3단계는 조금씩 기울여 판단을 어렵게)
+          inner = icon(ic.hex, cx, h / 2, Math.min(L.cw - 3, h - 6) * sc, { rot: level === 3 ? r.int(-25, 25) : 0 });
+        }
+        s += hit(i, cx - L.cw / 2 + 1, 2, L.cw - 2, h - 4, inner);
+        if (si === want) answer.push(i);
+      });
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: kid ? "왼쪽에 적힌 것을 오른쪽에서 찾아 ○ 하세요." : "줄마다 왼쪽 조건에 맞는 것을 하나 골라 ○ 표시하세요. 차이가 작으니 꼼꼼히 비교하세요.", items };
+  }
+
   // ================= 영역 정의 =================
   VP.AREAS = {
     A: { name: { kid: "꼼꼼히 찾기", teen: "시각 주의·탐색" }, full: "시각 주의·탐색", color: "#e8590c", kinds: { 1: [A_cancel, A_track, A_dots, A_numPath, A_trail], 2: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail], 3: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail] } },
-    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot, B_seq, B_rows], 2: [B_match, B_odd, B_spot, B_seq, B_rows], 3: [B_match, B_odd, B_spot, B_seq, B_rows] } },
+    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot, B_seq, B_rows, B_size], 2: [B_match, B_odd, B_spot, B_seq, B_rows, B_size], 3: [B_match, B_odd, B_spot, B_seq, B_rows, B_size] } },
     C: { name: { kid: "숨은 그림 찾기", teen: "전경-배경 구분" }, full: "전경-배경(도형-배경)", color: "#2f9e44", kinds: { 1: [C_overlap, C_shapes], 2: [C_overlap, C_shapes, C_embed], 3: [C_overlap, C_hidden, C_embed] } },
     D: { name: { kid: "모양 알아보기", teen: "형태 항상성" }, full: "형태 항상성", color: "#0c8599", kinds: { 1: [D_shapes, D_icons, D_pair], 2: [D_shapes, D_icons, D_pair], 3: [D_patterns, D_icons, D_shapes, D_pair] } },
     E: { name: { kid: "방향 알아보기", teen: "공간 관계" }, full: "공간 관계", color: "#1c7ed6", kinds: { 1: [E_oddFlip, E_sameDir, E_position], 2: [E_sameDir, E_glyphs, E_position, E_symmetry], 3: [E_rotate, E_rotIcon, E_symmetry] } },
