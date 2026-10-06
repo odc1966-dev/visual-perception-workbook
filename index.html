@@ -15,6 +15,7 @@
 <section id="home" class="screen on">
   <header class="topbar">
     <h1>시지각 워크북</h1>
+    <span id="appVer" class="ver"></span>
     <div class="sp"></div>
     <button id="btnRecords" class="pill">📊 기록 보기</button>
     <button id="btnInfo" class="pill">ⓘ</button>
@@ -58,6 +59,8 @@
     </div>
   </div>
 </section>
+
+<div id="updBanner" class="upd" hidden>새 버전을 받았어요. <button class="btn big" onclick="location.reload()">지금 적용</button></div>
 
 <!-- 활동 화면 -->
 <section id="play" class="screen">
@@ -110,8 +113,10 @@
   <button class="btn" onclick="this.closest('dialog').close()">닫기</button>
 </dialog>
 
+<script src="js/version.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/core.js"></script>
+<script src="js/outlines.js"></script>
 <script src="js/tasks.js"></script>
 <script src="js/app.js"></script>
 </body>

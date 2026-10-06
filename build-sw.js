@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const root = __dirname;
-const files = ["./", "index.html", "manifest.json", "css/app.css", "js/icons.js", "js/core.js", "js/tasks.js", "js/app.js", "icons/app-icon.svg", "icons/app-icon-512.png"];
+const files = ["./", "index.html", "manifest.json", "css/app.css", "js/icons.js", "js/core.js", "js/version.js", "js/outlines.js", "js/tasks.js", "js/app.js", "icons/app-icon.svg", "icons/app-icon-512.png"];
 for (const d of ["icons/r", "icons/c", "icons/k"]) for (const f of fs.readdirSync(path.join(root, d))) files.push(`${d}/${f}`);
 const ver = "vpwb-" + new Date().toISOString().replace(/\D/g, "").slice(0, 12);
 const sw = `/* 자동 생성 — build-sw.js */
@@ -15,4 +15,8 @@ self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) =
 self.addEventListener("fetch", (e) => { if (e.request.method !== "GET" || new URL(e.request.url).origin !== self.location.origin) return; e.respondWith(caches.match(e.request, { ignoreSearch: true }).then((r) => r || fetch(e.request))); });
 `;
 fs.writeFileSync(path.join(root, "sw.js"), sw);
+// 앱 화면에 보일 버전 (한국 시각)
+const kst = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+fs.writeFileSync(path.join(root, "js", "version.js"), `window.VP = window.VP || {}; VP.VERSION = "${kst}";
+`);
 console.log("sw.js", ver, files.length + "개 파일");

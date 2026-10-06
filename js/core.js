@@ -46,7 +46,7 @@
   const f1 = (n) => Math.round(n * 100) / 100;
   VP.f1 = f1;
   /* 입체감용 공통 정의: 위쪽 빛 반사(vpGloss)와 옅은 그림자(vpShadow) */
-  const DEFS = `<defs><linearGradient id="vpGloss" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.45" stop-color="#fff" stop-opacity="0.08"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient><filter id="vpShadow" x="-20%" y="-20%" width="150%" height="150%"><feDropShadow dx="0.35" dy="0.6" stdDeviation="0.55" flood-color="#000" flood-opacity="0.28"/></filter></defs>`;
+  const DEFS = `<defs><linearGradient id="vpGloss" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.55"/><stop offset="0.45" stop-color="#fff" stop-opacity="0.08"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient><filter id="vpShadow" x="-20%" y="-20%" width="150%" height="150%"><feDropShadow dx="0.35" dy="0.6" stdDeviation="0.55" flood-color="#000" flood-opacity="0.28"/></filter><filter id="vpSil" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0 0 0 0 0.16  0 0 0 0 0.18  0 0 0 0 0.22  0 0 0 1 0"/></filter></defs>`;
   VP.svg = (w, h, inner, cls) =>
     `<svg class="${cls || "it"}" viewBox="0 0 ${f1(w)} ${f1(h)}" data-w="${f1(w)}" data-h="${f1(h)}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${DEFS}${inner}</svg>`;
 

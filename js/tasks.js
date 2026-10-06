@@ -1393,16 +1393,525 @@
     return { instr: kid ? "왼쪽에 적힌 것을 오른쪽에서 찾아 ○ 하세요." : "줄마다 왼쪽 조건에 맞는 것을 하나 골라 ○ 표시하세요. 차이가 작으니 꼼꼼히 비교하세요.", items };
   }
 
+  // =====================================================================
+  // 추가 활동 3 (2026-10-06): ① 생활·글자 ② 공간·기억 ③ 그림 인식 ④ 손 쓰기 + 칠교
+  // =====================================================================
+
+  // ---------- 한글 음절 바꾸기 (비슷한 방해 글자 만들기) ----------
+  const SIM_VOWEL = { 0: [4, 8, 2], 4: [0, 13, 6], 8: [13, 0, 12], 13: [8, 4, 17], 20: [18, 13, 8], 18: [20, 13], 1: [5, 0], 5: [1, 4], 2: [6, 0], 6: [2, 4], 12: [17, 8], 17: [12, 13] };
+  const SIM_CHO = { 0: [15, 3, 1], 15: [0, 3], 3: [16, 0, 2], 16: [3, 0], 7: [17, 9], 17: [7, 9], 12: [14, 9], 14: [12, 9], 11: [18, 2], 18: [11, 12], 2: [5, 3], 5: [2, 3], 9: [12, 14], 6: [7, 9] };
+  function koMutate(r, word) {
+    const chars = [...word];
+    for (let t = 0; t < 30; t++) {
+      const i = r.int(0, chars.length - 1), code = chars[i].charCodeAt(0) - 0xac00;
+      if (code < 0 || code > 11171) continue;
+      let cho = Math.floor(code / 588), jung = Math.floor((code % 588) / 28), jong = code % 28;
+      const k = r.int(0, 2);
+      if (k === 0 && SIM_VOWEL[jung]) jung = r.pick(SIM_VOWEL[jung]);
+      else if (k === 1 && SIM_CHO[cho]) cho = r.pick(SIM_CHO[cho]);
+      else jong = jong ? 0 : r.pick([4, 8, 16, 21]);
+      const c = String.fromCharCode(0xac00 + cho * 588 + jung * 28 + jong);
+      if (c !== chars[i]) { const o = chars.slice(); o[i] = c; return o.join(""); }
+    }
+    return word + "";
+  }
+  const KO_WORDS2 = ["사과", "학교", "버스", "우유", "가방", "연필", "시계", "의자", "병원", "은행", "기차", "바다", "나무", "모자", "양말", "우산", "포도", "거울", "숟가락", "치약"];
+  const KO_WORDS3 = ["도서관", "편의점", "지하철", "냉장고", "운동화", "컴퓨터", "휴대폰", "선생님", "햄버거", "초콜릿", "놀이터", "자전거", "텔레비전", "아이스크림", "소방차"];
+  const FONT_STYLES = [
+    { f: "'Malgun Gothic', sans-serif", w: 400 }, { f: "'Malgun Gothic', sans-serif", w: 900 },
+    { f: "Batang, 'Noto Serif KR', serif", w: 400 }, { f: "Gungsuh, 'Noto Serif KR', serif", w: 700 },
+    { f: "Gulim, 'Noto Sans KR', sans-serif", w: 400 }, { f: "'Malgun Gothic', sans-serif", w: 700, skew: -14 },
+    { f: "'Malgun Gothic', sans-serif", w: 900, outline: true },
+  ];
+  function styledText(x, y, s, size, st, color) {
+    const fill = st.outline ? "none" : color;
+    const stroke = st.outline ? ` stroke="${color}" stroke-width="${f1(size * 0.05)}"` : "";
+    const t = `<text x="${f1(x)}" y="${f1(y)}" font-size="${f1(size)}" text-anchor="middle" dominant-baseline="central" font-family="${st.f.replace(/"/g, "'")}" font-weight="${st.w}" fill="${fill}"${stroke}>${s}</text>`;
+    return st.skew ? `<g transform="translate(${f1(x)} ${f1(y)}) skewX(${st.skew}) translate(${f1(-x)} ${f1(-y)})">${t}</g>` : t;
+  }
+
+  // ---------- ① D. 글꼴이 달라도 같은 글자·단어 ----------
+  function D_font(ctx) {
+    const { r, level, kid } = ctx;
+    const items = [];
+    const colors = VP.PALETTE[ctx.theme].fills.concat(["#212529"]);
+    for (let k = 0; k < 5; k++) {
+      let target, dists;
+      if (kid && level === 1) { target = String(r.int(1, 9)); dists = r.sample("0123456789".split("").filter((d) => d !== target), 4); }
+      else if (kid && level === 2) {
+        const cons = "ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ".split(""), simC = { ㄱ: "ㅋㄴ", ㅋ: "ㄱㅌ", ㄷ: "ㅌㄹ", ㅌ: "ㄷㅋ", ㅂ: "ㅍㅁ", ㅍ: "ㅂㅁ", ㅈ: "ㅊㅅ", ㅊ: "ㅈㅅ", ㅇ: "ㅎㅁ", ㅎ: "ㅇㅊ", ㄴ: "ㄱㄷ", ㄹ: "ㄷㅌ", ㅁ: "ㅂㅇ", ㅅ: "ㅈㅊ" };
+        target = r.pick(cons); dists = r.shuffle([...simC[target]].concat(r.sample(cons.filter((c) => c !== target), 2)));
+      } else {
+        const base = kid ? r.pick(["가", "나", "다", "마", "바", "사", "아", "자", "하", "고", "누", "도"]) : level === 1 ? r.pick(["가", "너", "도", "류", "미", "보", "수", "어", "주", "카", "티", "효"]) : level === 2 ? r.pick(KO_WORDS2) : r.pick(KO_WORDS3);
+        target = base;
+        const set = new Set();
+        for (let t = 0; t < 40 && set.size < 4; t++) { const m = koMutate(r, base); if (m !== base) set.add(m); }
+        dists = [...set];
+        if (!dists.length) dists = r.sample(KO_WORDS2.filter((w) => w !== base), 3);
+      }
+      const nc = 6, nt = r.int(2, 3);
+      const list = r.shuffle([...Array(nt).fill(target), ...[...Array(nc - nt)].map((_, i) => dists[i % dists.length])]);
+      const L = rowLayout(nc, 38, 36);
+      const size = target.length >= 3 ? 7 : target.length === 2 ? 9 : /[ㄱ-ㅎ]/.test(target) ? 17 : 13;
+      let s = sampleBox(ctx, 38, 36) + styledText(19, 18, target, size * 1.05, FONT_STYLES[0], "#212529") + divider(L.x0 - 4, 36);
+      const answer = [];
+      list.forEach((t, i) => {
+        // 자음 낱자는 바탕·궁서 글꼴에서 아주 작게 나와 맑은 고딕 계열만 쓴다
+        const pool2 = /[ㄱ-ㅎ]/.test(target) ? [FONT_STYLES[0], FONT_STYLES[1], FONT_STYLES[5], FONT_STYLES[6]] : FONT_STYLES.slice(level === 1 ? 0 : 1);
+        const st = r.pick(pool2);
+        const sz = size * r.range(level === 1 ? 0.85 : 0.7, 1.15);
+        s += hit(i, L.cx(i) - L.cw / 2 + 1, 3, L.cw - 2, 30, styledText(L.cx(i), 18, t, Math.min(sz, (L.cw - 2) / Math.max(1, t.length) * 1.05), st, r.pick(colors)));
+        if (t === target) answer.push(i);
+      });
+      items.push({ svg: svg(W, 36, s), mode: "all", answer });
+    }
+    return { instr: kid ? "글씨 모양이나 색이 달라도 왼쪽과 같은 글자를 모두 찾아 ○ 하세요." : "글꼴·크기·색이 달라도 왼쪽과 같은 글자(단어)를 모두 찾아 ○ 표시하세요. 비슷한 글자에 주의하세요.", items };
+  }
+
+  // ---------- ① A. 장보기 목록 찾기(유아) · 메뉴판 정보 찾기(청소년) ----------
+  function A_shop(ctx) {
+    const { r, level, kid } = ctx;
+    if (kid) {
+      const nList = level === 1 ? 2 : 3;
+      const list = pool(ctx, nList, { cat: undefined });
+      const rowsN = [0, 3, 4, 5][level], cols = [0, 6, 7, 8][level], cs = W / cols, rh = [0, 34, 30, 26][level];
+      const others = level === 3 ? similar(ctx, list[0], 6, list.map((x) => x.hex)) : pool(ctx, 6, { not: list.map((x) => x.hex) });
+      const band = 30;
+      let s = box(0, 0, W, band - 4, { fill: ctx.tint, stroke: ctx.accent, sw: 0.5 }) + text(26, 13, "장보기 목록", 5.2, { fill: ctx.accent });
+      list.forEach((ic, i) => (s += box(56 + i * 30, 2, 26, 22, { fill: "#fff", stroke: "#ced4da", rx: 2 }) + icon(ic.hex, 69 + i * 30, 13, 18)));
+      const n = rowsN * cols, cells = [];
+      list.forEach((ic) => { for (let t = 0; t < r.int(1, 2); t++) cells.push(ic); });
+      while (cells.length < n) cells.push(r.pick(others));
+      const order = r.shuffle(cells), answer = [];
+      for (let y = 0; y < rowsN; y++) {
+        const yy = band + 4 + y * rh;
+        s += `<rect x="0" y="${f1(yy + rh - 4)}" width="${W}" height="3" rx="1" fill="#c8a27a"/>`; // 선반
+        for (let x = 0; x < cols; x++) {
+          const i = y * cols + x, ic = order[i], X = cs * x + cs / 2;
+          s += hit(i, X - cs / 2 + 1, yy, cs - 2, rh - 4, icon(ic.hex, X, yy + (rh - 4) / 2, Math.min(cs, rh - 4) * 0.82));
+          if (list.includes(ic)) answer.push(i);
+        }
+      }
+      return { instr: "장보기 목록에 있는 물건을 선반에서 모두 찾아 ○ 하세요.", items: [{ svg: svg(W, band + 4 + rowsN * rh, s), mode: "all", answer }] };
+    }
+    // 청소년: 메뉴판에서 가격 조건에 맞는 것 찾기
+    const foods = ctx.icons.filter((i) => i.cat === "음식" && !["1F944", "1F374"].includes(i.hex));
+    const menu = r.sample(foods, 12);
+    const prices = level === 1 ? [1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000] : [2500, 2050, 5200, 2550, 3500, 3050, 5300, 2500, 4500, 4050];
+    let target, cond;
+    const price = [];
+    if (level < 3) {
+      target = level === 1 ? r.pick(prices) : 2500;
+      const idx = r.sample([...Array(12).keys()], 3);
+      for (let i = 0; i < 12; i++) price.push(idx.includes(i) ? target : r.pick(prices.filter((p) => p !== target)));
+      cond = (p) => p === target;
+    } else {
+      const lim = r.pick([3000, 4000]);
+      for (let i = 0; i < 12; i++) price.push(r.pick([1800, 2500, 2900, 3000, 3100, 3500, 3900, 4000, 4200, 5000]));
+      cond = (p) => p <= lim; target = lim;
+    }
+    const won = (p) => p.toLocaleString("ko-KR") + "원";
+    const cols = 3, cw = W / cols, ch = 34, band = 14;
+    let s = `<rect x="0" y="0" width="${W}" height="${band + 4 * ch + 4}" rx="4" fill="#2b2118"/>` + text(W / 2, 7.5, "MENU · 오늘의 메뉴", 5.5, { fill: "#ffe8a3" });
+    const answer = [];
+    menu.forEach((ic, i) => {
+      const x = cw * (i % cols), y = band + ch * Math.floor(i / cols);
+      const inner = `<rect x="${f1(x + 2)}" y="${f1(y + 2)}" width="${f1(cw - 4)}" height="${ch - 4}" rx="3" fill="#3a2d22"/>` + icon(ic.hex, x + 15, y + ch / 2, 22) + text(x + 30, y + 11, ic.name, ic.name.length > 5 ? 3.6 : 4.4, { anchor: "start", fill: "#fff" }) + text(x + 30, y + 22, won(price[i]), 5.2, { anchor: "start", fill: "#ffd43b" });
+      s += hit(i, x + 2, y + 2, cw - 4, ch - 4, inner);
+      if (cond(price[i])) answer.push(i);
+    });
+    const q = level < 3 ? `${won(target)}인 메뉴를 모두 찾아 ○ 표시하세요.${level === 2 ? " (2,050원·2,550원과 헷갈리지 않게)" : ""}` : `${won(target)} 이하로 살 수 있는 메뉴를 모두 찾아 ○ 표시하세요.`;
+    return { instr: "메뉴판을 훑어보며 " + q, items: [{ svg: svg(W, band + 4 * ch + 4, s), mode: "all", answer }] };
+  }
+
+  // ---------- ① E. 지도 길 찾기 ----------
+  function E_map(ctx) {
+    const { r, level, kid } = ctx;
+    const n = [0, 4, 5, 5][level], cs = [0, 19, 16, 16][level];
+    const items = [];
+    const DIR = [[0, -1, "위", 270], [1, 0, "오른쪽", 0], [0, 1, "아래", 90], [-1, 0, "왼쪽", 180]];
+    for (let k = 0; k < 2; k++) {
+      let start, cmds, end;
+      for (let t = 0; t < 300; t++) {
+        start = [r.int(0, n - 1), r.int(0, n - 1)];
+        let p = start.slice(), face = 0;
+        cmds = [];
+        const steps = [0, 2, 3, 4][level];
+        let ok = true;
+        for (let s2 = 0; s2 < steps; s2++) {
+          if (level === 3) {
+            // 3단계: 내가 바라보는 방향 기준으로 돌기(왼쪽·오른쪽)
+            if (s2 > 0) { const turn = r.pick([1, 3]); face = (face + turn) % 4; cmds.push({ turn: turn === 1 ? "오른쪽으로 돌기" : "왼쪽으로 돌기" }); }
+            const d = DIR[face], len = r.int(1, 2);
+            p = [p[0] + d[0] * len, p[1] + d[1] * len];
+            cmds.push({ fwd: len });
+          } else {
+            const d = r.pick(DIR), len = r.int(1, level === 1 ? 2 : 3);
+            p = [p[0] + d[0] * len, p[1] + d[1] * len];
+            cmds.push({ dir: d, len });
+          }
+          if (p[0] < 0 || p[1] < 0 || p[0] >= n || p[1] >= n) { ok = false; break; }
+        }
+        if (ok && (p[0] !== start[0] || p[1] !== start[1])) { end = p; break; }
+      }
+      const ics = pool(ctx, 6);
+      const land = {};
+      land[end.join()] = ics[0];
+      const free = [];
+      for (let x = 0; x < n; x++) for (let y = 0; y < n; y++) if (!(x === start[0] && y === start[1]) && !(x === end[0] && y === end[1])) free.push([x, y]);
+      r.sample(free, 5).forEach((c, i) => (land[c.join()] = ics[i + 1]));
+      const ox = 4, oy = 4, mapW = n * cs, h = Math.max(mapW + 8, 16 + cmds.length * (level === 3 ? 9 : 11) + 34);
+      let s = `<rect x="${ox}" y="${oy}" width="${mapW}" height="${mapW}" rx="2" fill="#d3f9d8"/>`;
+      for (let i = 0; i <= n; i++) {
+        s += `<line x1="${f1(ox + i * cs)}" y1="${oy}" x2="${f1(ox + i * cs)}" y2="${f1(oy + mapW)}" stroke="#adb5bd" stroke-width="0.4"/><line x1="${ox}" y1="${f1(oy + i * cs)}" x2="${f1(ox + mapW)}" y2="${f1(oy + i * cs)}" stroke="#adb5bd" stroke-width="0.4"/>`;
+      }
+      for (const key in land) { const [x, y] = key.split(",").map(Number); s += icon(land[key].hex, ox + x * cs + cs / 2, oy + y * cs + cs / 2, cs * 0.78); }
+      const sx = ox + start[0] * cs + cs / 2, sy = oy + start[1] * cs + cs / 2;
+      s += `<circle cx="${f1(sx)}" cy="${f1(sy)}" r="${f1(cs * 0.36)}" fill="#e03131"/>` + (level === 3 ? shape("arrow", sx, sy, cs * 0.26, { rot: 270, fill: "#fff", stroke: "none", sw: 0, flat: true }) : text(sx, sy, "출발", cs * 0.2, { fill: "#fff" }));
+      // 명령 목록
+      const cx0 = ox + mapW + 8;
+      s += text(cx0, 8, level === 3 ? "출발(빨간 화살표 방향을 보고 있어요)" : "출발에서", 4, { anchor: "start", fill: "#495057" });
+      cmds.forEach((c, i) => {
+        const y = 16 + i * (level === 3 ? 9 : 11);
+        let label;
+        if (c.dir) { label = `${c.dir[2]}으로 ${c.len}칸`.replace("위으로", "위로").replace("아래으로", "아래로"); s += shape("arrow", cx0 + 4, y, 3.2, { rot: c.dir[3], fill: ctx.accent, stroke: "none", sw: 0 }); }
+        else if (c.turn) label = "↻ " + c.turn;
+        else label = `앞으로 ${c.fwd}칸`;
+        s += text(cx0 + (c.dir ? 10 : 2), y, `${i + 1}. ${label}`, 4.4, { anchor: "start", fill: "#212529" });
+      });
+      // 선택지
+      const choices = r.shuffle([ics[0]].concat(r.sample(ics.slice(1), 3)));
+      const chY = h - 18, cw = (W - cx0) / 4;
+      s += text(cx0, chY - 13, "도착한 곳은?", 4.4, { anchor: "start", fill: ctx.accent });
+      const answer = [];
+      choices.forEach((c, i) => { s += hit(i, cx0 + cw * i, chY - 9, cw - 2, 20, box(cx0 + cw * i, chY - 9, cw - 2, 20, { stroke: "#ced4da", rx: 2 }) + icon(c.hex, cx0 + cw * i + cw / 2 - 1, chY + 1, 15)); if (c === ics[0]) answer.push(i); });
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: kid ? "빨간 출발점에서 순서대로 칸을 옮겨 가 보세요. 도착한 곳의 그림을 찾아 ○ 하세요." : level === 3 ? "빨간 화살표 방향을 보고 출발해, 명령대로 걷고 돌아 보세요. 도착한 곳을 고르세요." : "출발점에서 명령 순서대로 칸을 옮겨 도착한 곳의 그림을 고르세요.", items };
+  }
+
+  // ---------- ② E. 쌓기나무 ----------
+  function isoCubes(hm, ox, oy, a, color) {
+    // hm[x][y] = 높이. 뒤(작은 x+y)부터 그린다
+    const nx = hm.length, ny = hm[0].length;
+    const P = (x, y, z) => [ox + (x - y) * a * 0.87, oy + (x + y) * a * 0.5 - z * a];
+    let s = "";
+    const cubes = [];
+    for (let x = 0; x < nx; x++) for (let y = 0; y < ny; y++) for (let z = 0; z < hm[x][y]; z++) cubes.push([x, y, z]);
+    cubes.sort((p, q) => p[0] + p[1] - (q[0] + q[1]) || p[2] - q[2]);
+    const poly = (pts, fill) => `<path d="M${pts.map((p) => f1(p[0]) + " " + f1(p[1])).join("L")}Z" fill="${fill}" stroke="#343a40" stroke-width="0.35" stroke-linejoin="round"/>`;
+    for (const [x, y, z] of cubes) {
+      const top = [P(x, y, z + 1), P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x, y + 1, z + 1)];
+      const left = [P(x, y + 1, z + 1), P(x + 1, y + 1, z + 1), P(x + 1, y + 1, z), P(x, y + 1, z)];
+      const right = [P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x + 1, y + 1, z), P(x + 1, y, z)];
+      s += poly(top, color[0]) + poly(left, color[1]) + poly(right, color[2]);
+    }
+    return s;
+  }
+  function E_cubes(ctx) {
+    const { r, level, kid } = ctx;
+    const items = [];
+    const col = kid ? ["#ffd43b", "#fab005", "#e67700"] : ["#a5d8ff", "#4dabf7", "#1971c2"];
+    const nRows = level === 3 ? 3 : 4;
+    for (let k = 0; k < nRows; k++) {
+      const nx = level === 1 ? 2 : 3, ny = level === 1 ? 2 : 3, maxH = level === 1 ? 2 : 3;
+      // 뒤쪽이 앞쪽보다 낮지 않게 → 모든 기둥의 윗면이 보여 개수를 셀 수 있다
+      // 뒤 기둥이 앞 기둥보다 낮지 않게(계단식) → 모든 기둥의 윗면이 보여 셀 수 있다
+      const [lo0, hi0] = [null, [3, 6], [5, 10], [4, 12]][level];
+      let hm, total;
+      for (let t = 0; t < 400; t++) {
+        hm = [...Array(nx)].map(() => Array(ny).fill(0));
+        for (let x = nx - 1; x >= 0; x--) for (let y = ny - 1; y >= 0; y--) {
+          const lo = Math.max(x + 1 < nx ? hm[x + 1][y] : 0, y + 1 < ny ? hm[x][y + 1] : 0);
+          hm[x][y] = Math.min(maxH, lo + (r.chance(0.55) ? 1 : 0));
+        }
+        total = hm.flat().reduce((a, b) => a + b, 0);
+        if (total >= lo0 && total <= hi0) break;
+      }
+      const h = level === 3 ? 62 : 50, a = level === 3 ? 8.5 : 8;
+      let s = box(1, 1, 64, h - 2, { fill: ctx.tint, stroke: ctx.accent, sw: 0.6 }) + isoCubes(hm, 33, h / 2 - (maxH * a) / 2 + 4 - (nx + ny) * a * 0.12, a, col);
+      s += divider(70, h);
+      const answer = [];
+      if (level < 3) {
+        const opts = r.shuffle([total, total + 1, Math.max(1, total - 1), total + 2].filter((v, i, arr) => arr.indexOf(v) === i)).slice(0, 4);
+        const cw = (W - 74) / opts.length;
+        opts.forEach((v, i) => { s += hit(i, 74 + cw * i + 2, 8, cw - 4, h - 16, box(74 + cw * i + 2, 8, cw - 4, h - 16, { stroke: "#ced4da", rx: 3 }) + text(74 + cw * i + cw / 2, h / 2, v + "개", 9, { fill: "#212529" })); if (v === total) answer.push(i); });
+      } else {
+        // 3단계: 위에서 본 모양 고르기
+        const top = hm.map((col2) => col2.map((v) => (v > 0 ? 1 : 0)));
+        const variants = [top];
+        for (let t = 0; t < 50 && variants.length < 4; t++) {
+          const v = top.map((c) => c.slice());
+          const x = r.int(0, nx - 1), y = r.int(0, ny - 1);
+          v[x][y] = 1 - v[x][y];
+          if (!variants.some((u) => u.flat().join() === v.flat().join()) && v.flat().some((q) => q)) variants.push(v);
+        }
+        const opts = r.shuffle(variants);
+        const cw = (W - 74) / 4, g = 8;
+        opts.forEach((v, i) => {
+          let inner = "";
+                    // 그림과 같은 방향(비스듬한 마름모 판)으로 위에서 본 모양
+          const cx = 74 + cw * i + cw / 2, cy = h / 2 - (nx + ny - 2) * g * 0.36;
+          for (let x = 0; x < nx; x++) for (let y = 0; y < ny; y++) {
+            const px = cx + (x - y) * g * 0.72, py = cy + (x + y) * g * 0.72;
+            inner += `<path d="M${f1(px)} ${f1(py - g * 0.72)}L${f1(px + g * 0.72)} ${f1(py)}L${f1(px)} ${f1(py + g * 0.72)}L${f1(px - g * 0.72)} ${f1(py)}Z" fill="${v[x][y] ? col[0] : "#fff"}" stroke="#868e96" stroke-width="0.3"/>`;
+          }
+          s += hit(i, 74 + cw * i + 2, 6, cw - 4, h - 12, inner);
+          if (v === top) answer.push(i);
+        });
+      }
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: level === 3 ? (kid ? "쌓기나무를 위에서 내려다보면 어떤 모양일까요? 골라 ○ 하세요." : "쌓기나무를 위에서 내려다본 모양을 고르세요. (보이지 않는 아래칸도 생각해요)") : kid ? "쌓기나무는 모두 몇 개일까요? 맞는 수에 ○ 하세요. (아래에 숨은 것도 세요)" : "쌓기나무의 개수를 세어 고르세요. 아래에 받치고 있는 나무도 셉니다.", items };
+  }
+
+  // ---------- ② G. 순서 기억 (Corsi 블록 형식) ----------
+  function G_corsi(ctx) {
+    const { r, level } = ctx;
+    const n = level === 1 ? 3 : 4, len = [0, 3, 4, 5][level] + (ctx.kid ? 0 : 1), size = 52, h = 58;
+    const items = [];
+    for (let k = 0; k < 3; k++) {
+      const seq = r.sample([...Array(n * n).keys()], len);
+      const showW = size + 8;
+      let showI = gridCells(4, 3, n, size, null);
+      const cs = size / n;
+      seq.forEach((id, i) => { const x = 4 + (id % n) * cs, y = 3 + Math.floor(id / n) * cs; showI += `<circle cx="${f1(x + cs / 2)}" cy="${f1(y + cs / 2)}" r="${f1(cs * 0.34)}" fill="${ctx.accent}"/>` + text(x + cs / 2, y + cs / 2, i + 1, cs * 0.36, { fill: "#fff" }); });
+      const ask = gridCells(8, 3, n, size, null, { hits: true });
+      items.push(memRow(ctx, showW, h, showI, ask, { answer: seq.map((i) => "c" + i), sub: "order", n, showSec: len * 1.2 + 1, seq: seq.map((i) => "c" + i) }));
+    }
+    return { instr: ctx.kid ? "번호 순서를 잘 보고 가려요. 오른쪽 빈 칸의 같은 자리에 번호를 써 보세요." : "칸의 번호 순서를 기억한 뒤 가리고, 오른쪽 같은 자리에 순서대로 번호를 쓰세요.", items };
+  }
+
+  // ---------- ② G. 물건이 있던 자리 ----------
+  function G_where(ctx) {
+    const { r, level } = ctx;
+    const n = level === 1 ? 3 : 4, nObj = [0, 3, 4, 6][level] + (ctx.kid ? 0 : 1), size = 52, h = 58;
+    const items = [];
+    for (let k = 0; k < 3; k++) {
+      const objs = pool(ctx, nObj), cells = r.sample([...Array(n * n).keys()], nObj);
+      const cs = size / n;
+      let showI = gridCells(4, 3, n, size, null);
+      objs.forEach((ic, i) => (showI += icon(ic.hex, 4 + (cells[i] % n) * cs + cs / 2, 3 + Math.floor(cells[i] / n) * cs + cs / 2, cs * 0.78)));
+      const ti = r.int(0, nObj - 1);
+      const ask = box(0, 12, 20, 24, { fill: "#fff", stroke: ctx.accent, sw: 0.6 }) + icon(objs[ti].hex, 10, 24, 15) + text(10, 42, "어디?", 4, { fill: ctx.accent }) + gridCells(24, 3, n, size, null, { hits: true });
+      items.push(memRow(ctx, size + 8, h, showI, ask, { answer: ["c" + cells[ti]], sub: "one", showSec: 3 + nObj }));
+    }
+    return { instr: ctx.kid ? "그림들이 어디에 있는지 잘 보고 가려요. 오른쪽 그림이 있던 칸에 ○ 하세요." : "물건의 위치를 기억한 뒤 가리고, 오른쪽에 제시된 물건이 있던 칸에 ○ 표시하세요.", items };
+  }
+
+  // ---------- ③ B. 그림자(실루엣) 짝 찾기 ----------
+  function B_sil(ctx) {
+    const { r, level } = ctx;
+    const items = [];
+    const sil = (inner) => `<g filter="url(#vpSil)">${inner}</g>`;
+    for (let k = 0; k < 5; k++) {
+      const t = pool(ctx, 1, level === 3 ? { dir: true } : {})[0];
+      const ds = level === 1 ? pool(ctx, 3, { not: [t.hex] }).filter((d) => d.cat !== t.cat).concat(pool(ctx, 3, { not: [t.hex] })).slice(0, 3) : similar(ctx, t, 3);
+      const toSil = k % 2 === 0; // 그림 → 그림자 / 그림자 → 그림 번갈아
+      let opts = [{ ic: t, ok: true }].concat(ds.map((d) => ({ ic: d })));
+      if (level === 3) opts = [{ ic: t, ok: true }, { ic: t, flip: true }].concat(ds.slice(0, 2).map((d) => ({ ic: d })));
+      opts = r.shuffle(opts);
+      const L = rowLayout(4, 42, 42);
+      const sIn = icon(t.hex, 21, 21, 30);
+      let s = sampleBox(ctx, 42, 42) + (toSil ? sIn : sil(sIn)) + divider(L.x0 - 4, 42);
+      const answer = [];
+      opts.forEach((o, i) => {
+        const inner = icon(o.ic.hex, L.cx(i), 21, 28, { flip: o.flip });
+        s += hit(i, L.cx(i) - 16, 5, 32, 32, toSil ? sil(inner) : inner);
+        if (o.ok) answer.push(i);
+      });
+      items.push({ svg: svg(W, 42, s), mode: "one", answer });
+    }
+    return { instr: ctx.kid ? "왼쪽 그림과 그림자가 짝이 되는 것을 찾아 ○ 하세요." : level === 3 ? "왼쪽과 짝이 되는 그림자(또는 그림)를 고르세요. 좌우가 뒤집힌 것은 짝이 아닙니다." : "왼쪽과 짝이 되는 그림자(또는 그림)를 찾아 ○ 표시하세요.", items };
+  }
+
+  // ---------- ③ F. 반쪽 그림 완성 ----------
+  function F_half(ctx) {
+    const { r, level } = ctx;
+    const items = [];
+    const vertical = true; // 좌우 반쪽 (위아래로 자르면 위쪽이 비어 있는 그림이 많음)
+    for (let k = 0; k < 4; k++) {
+      const t = pool(ctx, 1)[0];
+      const ds = level === 1 ? pool(ctx, 3, { not: [t.hex] }) : similar(ctx, t, level === 3 ? 4 : 3);
+      const opts = r.shuffle([t].concat(ds));
+      const S = 32, h = 44;
+      const half = (hex, cx, cy, which) => {
+        const id = VP.uid("hf"), x0 = cx - S / 2, y0 = cy - S / 2;
+        const rc = vertical ? (which === 0 ? [x0, y0, S / 2, S] : [cx, y0, S / 2, S]) : which === 0 ? [x0, y0, S, S / 2] : [x0, cy, S, S / 2];
+        return `<defs><clipPath id="${id}"><rect x="${f1(rc[0])}" y="${f1(rc[1])}" width="${f1(rc[2])}" height="${f1(rc[3])}"/></clipPath></defs><g clip-path="url(#${id})">${icon(hex, cx, cy, S)}</g>`;
+      };
+      let s = box(1, 1, 48, h - 2, { fill: "#fff", stroke: ctx.accent, sw: 0.6 }) + half(t.hex, 25, h / 2, 0);
+      s += vertical ? `<line x1="25" y1="5" x2="25" y2="${h - 5}" stroke="#adb5bd" stroke-width="0.4" stroke-dasharray="1.5 1"/>` : `<line x1="7" y1="${h / 2}" x2="43" y2="${h / 2}" stroke="#adb5bd" stroke-width="0.4" stroke-dasharray="1.5 1"/>`;
+      const L = rowLayout(opts.length, 50, h);
+      s += divider(L.x0 - 4, h);
+      const answer = [];
+      opts.forEach((o, i) => {
+        // 나머지 반쪽만 보이게: 왼쪽 반 → 오른쪽 반, 위쪽 반 → 아래쪽 반
+        const cx = L.cx(i) - (vertical ? S / 4 : 0), cy = h / 2 - (vertical ? 0 : S / 4);
+        s += hit(i, L.cx(i) - L.cw / 2 + 1, 3, L.cw - 2, h - 6, half(o.hex, cx, cy, 1));
+        if (o === t) answer.push(i);
+      });
+      items.push({ svg: svg(W, h, s), mode: "one", answer });
+    }
+    return { instr: ctx.kid ? "왼쪽 그림의 나머지 반쪽을 오른쪽에서 찾아 ○ 하세요." : "왼쪽 반쪽 그림과 이어지는 나머지 반쪽을 고르세요.", items };
+  }
+
+  // ---------- ④ H. 점선 윤곽 따라 그리기 ----------
+  function outlineSvg(hex, x, y, S, color, dash, sw) {
+    const o = VP.OUTLINE[hex];
+    const sc = S / 72;
+    return `<g transform="translate(${f1(x - S / 2)} ${f1(y - S / 2)}) scale(${f1(sc)})" fill="none" stroke="${color}" stroke-width="${f1(sw / sc)}" stroke-linecap="round" stroke-linejoin="round"${dash ? ` stroke-dasharray="${f1(dash[0] / sc)} ${f1(dash[1] / sc)}"` : ""}>${o.d.map((d) => `<path d="${d}"/>`).join("")}</g>`;
+  }
+  function outlinePts(hex, x, y, S) {
+    const o = VP.OUTLINE[hex], sc = S / 72, pts = [];
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    for (const d of o.d) {
+      p.setAttribute("d", d);
+      const L = p.getTotalLength(), n = Math.max(4, Math.round(L / 3));
+      for (let i = 0; i <= n; i++) { const q = p.getPointAtLength((L * i) / n); pts.push([f1(x - S / 2 + q.x * sc), f1(y - S / 2 + q.y * sc)]); }
+    }
+    return pts;
+  }
+  function H_outline(ctx) {
+    const { r, level } = ctx;
+    const avail = ctx.icons.filter((i) => VP.OUTLINE && VP.OUTLINE[i.hex]).sort((a, b) => VP.OUTLINE[a.hex].n - VP.OUTLINE[b.hex].n);
+    const third = Math.ceil(avail.length / 3);
+    const band = level === 1 ? avail.slice(0, third) : level === 2 ? avail.slice(third, third * 2) : avail.slice(third * 2);
+    const items = [];
+    for (let k = 0; k < 2; k++) {
+      const ic = r.pick(band), h = 104, S = 92;
+      let s = box(1, 2, 40, 40, { fill: ctx.tint, stroke: ctx.accent, sw: 0.6 }) + icon(ic.hex, 21, 22, 30) + text(21, 48, "보기", 4, { fill: ctx.accent });
+      s += outlineSvg(ic.hex, 110, h / 2, S, "#adb5bd", [1.4, 1.3], 0.7);
+      items.push({ svg: svg(W, h, s), mode: "trace", pts: outlinePts(ic.hex, 110, h / 2, S), answer: null });
+    }
+    return { instr: ctx.kid ? "점선을 따라 그림을 그려 보세요. 다 그리면 보기처럼 색칠해도 좋아요." : "점선을 따라 윤곽을 그리세요. 선이 끊기지 않게 천천히 이어 그리세요.", items };
+  }
+
+  // ---------- ④ H. 숫자·한글 따라 쓰기 ----------
+  function glyphPts(chars, x, y, size) {
+    const c = document.createElement("canvas"), k = 4; // 1mm = 4px
+    const w = Math.ceil(size * chars.length * 1.1 * k), hh = Math.ceil(size * 1.3 * k);
+    c.width = w; c.height = hh;
+    const g = c.getContext("2d");
+    g.font = `700 ${size * k}px 'Malgun Gothic', sans-serif`;
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(chars, w / 2, hh / 2);
+    const data = g.getImageData(0, 0, w, hh).data, pts = [];
+    for (let py = 0; py < hh; py += k) for (let px = 0; px < w; px += k) if (data[(py * w + px) * 4 + 3] > 128) pts.push([f1(x - w / 2 / k + px / k), f1(y - hh / 2 / k + py / k)]);
+    return pts;
+  }
+  function H_letters(ctx) {
+    const { r, level, kid } = ctx;
+    const sets = kid ? [null, "123456789".split(""), "ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ".split(""), "가나다라마바사아자차카타파하".split("")]
+      : [null, "ㄱㄴㄷㄹㅁㅂㅅㅇㅈㅊㅋㅌㅍㅎ".split(""), "가나도로무부소우주추코투포후".split(""), KO_WORDS2.filter((w) => w.length === 2)];
+    const items = [];
+    const h = 46;
+    for (const ch of r.sample(sets[level], 4)) {
+      const size = ch.length === 2 ? 17 : 26;
+      const cols = [26, 70, 114, 158];
+      let s = "";
+      cols.forEach((cx, i) => (s += box(cx - 21, 3, 42, h - 6, { stroke: "#ced4da", rx: 3 }) + `<line x1="${cx - 19}" y1="${h / 2}" x2="${cx + 19}" y2="${h / 2}" stroke="#f1f3f5" stroke-width="0.3"/>`));
+      s += `<text x="26" y="${h / 2}" font-size="${size}" text-anchor="middle" dominant-baseline="central" font-family="'Malgun Gothic', sans-serif" font-weight="700" fill="${ctx.patColor}">${ch}</text>`;
+      for (const cx of [70, 114]) s += `<text x="${cx}" y="${h / 2}" font-size="${size}" text-anchor="middle" dominant-baseline="central" font-family="'Malgun Gothic', sans-serif" font-weight="700" fill="#e9ecef" stroke="#adb5bd" stroke-width="0.35" stroke-dasharray="1 0.8">${ch}</text>`;
+      items.push({ svg: svg(W, h, s), mode: "trace", pts: glyphPts(ch, 70, h / 2, size).concat(glyphPts(ch, 114, h / 2, size)), answer: null });
+    }
+    return { instr: kid ? "보기 글자를 보고, 흐린 글자 위를 따라 쓴 다음 마지막 칸에 혼자 써 보세요." : "보기 → 흐린 글자 두 번 따라 쓰기 → 빈칸에 혼자 쓰기 순서로 연습하세요.", items };
+  }
+
+  // ---------- ④ H. 가위질 선 (오려 보기) ----------
+  function H_cut(ctx) {
+    const { r, level } = ctx;
+    const items = [];
+    const kinds = level === 1 ? ["straight", "curve"] : level === 2 ? ["zigzag", "wave"] : ["circle", "star"];
+    for (const kd of kinds) {
+      const h = 100, y = h / 2;
+      let d;
+      if (kd === "straight") d = `M24 ${y}H170`;
+      if (kd === "curve") d = VP.smoothPath([[24, y], [70, y - 22], [120, y + 22], [170, y]]);
+      if (kd === "zigzag") { d = `M24 ${y}`; for (let i = 1; i <= 8; i++) d += `L${f1(24 + i * 18)} ${f1(y + (i % 2 ? -18 : 18))}`; }
+      if (kd === "wave") { const pts = [[24, y]]; for (let i = 1; i <= 6; i++) pts.push([24 + i * 24, y + (i % 2 ? -24 : 24)]); d = VP.smoothPath(pts); }
+      if (kd === "circle") d = `M${f1(102 + 38)} ${y}A38 38 0 1 1 ${f1(102 - 38)} ${y}A38 38 0 1 1 ${f1(102 + 38)} ${y}`;
+      if (kd === "star") d = VP.shapeD("star", 102, y + 2, 42, 0);
+      let s = `<path d="${d}" fill="none" stroke="#e9ecef" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`;
+      s += `<path d="${d}" fill="none" stroke="#212529" stroke-width="0.9" stroke-dasharray="3 2"/>`;
+      s += icon("2702", kd === "circle" || kd === "star" ? 30 : 12, kd === "circle" ? y : kd === "star" ? y - 30 : y, 14);
+      items.push({ svg: svg(W, h, `<g class="canvas">${s}</g>`), mode: "path", path: d, width: 7, answer: null });
+    }
+    return { instr: ctx.kid ? "가위로 점선을 따라 오려 보세요. (태블릿에서는 손가락으로 점선을 따라가요)" : "점선을 따라 가위로 오리세요. 종이를 잡은 손을 돌려 가며 자르세요.", items };
+  }
+
+  // ---------- 칠교놀이 ----------
+  /* 정사각형(한 변 4) 칠교 조각의 기본 자리. type: L(큰 삼각형) M(중간) S(작은) Q(정사각형) P(평행사변형) */
+  const TANGRAM = [
+    { t: "L", p: [[0, 0], [4, 0], [2, 2]], c: "#ff6b6b" }, { t: "L", p: [[0, 0], [2, 2], [0, 4]], c: "#4dabf7" },
+    { t: "S", p: [[4, 0], [4, 2], [3, 1]], c: "#ffd43b" }, { t: "Q", p: [[3, 1], [4, 2], [3, 3], [2, 2]], c: "#51cf66" },
+    { t: "S", p: [[2, 2], [3, 3], [1, 3]], c: "#cc5de8" }, { t: "P", p: [[0, 4], [1, 3], [3, 3], [2, 4]], c: "#ff922b" },
+    { t: "M", p: [[4, 2], [4, 4], [2, 4]], c: "#20c997" },
+  ];
+  const TG_ADJ = [[1, 2, 3], [0, 4, 5], [0, 3], [0, 2, 4, 6], [1, 3, 5], [1, 4, 6], [3, 5]];
+  VP.TANGRAM = TANGRAM;
+  function E_tangram(ctx) {
+    const { r, level } = ctx;
+    const items = [];
+    const u = 12.5; // 조각 1칸 = 12.5mm (오려 쓰는 조각과 같은 크기, 큰 정사각형 5cm)
+    for (let k = 0; k < 2; k++) {
+      const want = level === 1 ? r.int(2, 3) : level === 2 ? r.int(4, 5) : 6;
+      // 서로 붙어 있는 조각들만 골라 모양을 만든다
+      let set = [r.int(0, 6)];
+      while (set.length < want) { const nb = r.shuffle(set.flatMap((i) => TG_ADJ[i]).filter((i) => !set.includes(i))); set.push(nb[0]); }
+      const rot = level === 3 ? r.pick([45, 135, 225, 315]) : r.pick([0, 90, 180, 270]);
+      const R = (p) => { const [x, y] = [p[0] - 2, p[1] - 2]; const a = (rot * Math.PI) / 180; return [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]; };
+      const slots = set.map((i) => ({ t: TANGRAM[i].t, i, p: TANGRAM[i].p.map(R) }));
+      const xs = slots.flatMap((s2) => s2.p.map((p) => p[0])), ys = slots.flatMap((s2) => s2.p.map((p) => p[1]));
+      const minX = Math.min(...xs), minY = Math.min(...ys), wU = Math.max(...xs) - minX, hU = Math.max(...ys) - minY;
+      // 돌린 모양의 실제 크기로 왼쪽 칸을 잡고, 오른쪽 받침 칸이 조각을 다 담을 만큼 높이를 준다
+      const box0 = Math.max(wU, hU) * u + 4;
+      // 받침 칸에 놓을 조각: 처음 각도(1단계는 정답 각도, 그 외는 45° 배수만큼 돌림)와 겹치지 않는 자리를 미리 계산
+      const trayX = box0 + 16, trayW = W - trayX;
+      const tray = [];
+      { let cx = trayX, cy = 14, rowH = 0;
+        set.forEach((i, k) => {
+          const base = TANGRAM[i].p.map((q) => [q[0] * u, q[1] * u]);
+          const c = [base.reduce((t, q) => t + q[0], 0) / base.length, base.reduce((t, q) => t + q[1], 0) / base.length];
+          const ang = rot + (level === 1 ? 0 : 45 * (1 + ((k * 3 + i) % 7)));
+          const a2 = (ang * Math.PI) / 180;
+          const V = base.map((q) => [(q[0] - c[0]) * Math.cos(a2) - (q[1] - c[1]) * Math.sin(a2), (q[0] - c[0]) * Math.sin(a2) + (q[1] - c[1]) * Math.cos(a2)]);
+          const xs = V.map((q) => q[0]), ys = V.map((q) => q[1]);
+          const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+          if (cx + bw > trayX + trayW && cx > trayX) { cx = trayX; cy += rowH + 3; rowH = 0; }
+          tray.push({ ang, x: f1(cx - Math.min(...xs)), y: f1(cy - Math.min(...ys)) });
+          cx += bw + 3; rowH = Math.max(rowH, bh);
+        });
+        var trayBottom = cy + rowH; }
+      const h = Math.max(box0 + 12, trayBottom + 4), ox = 6 + (box0 - wU * u) / 2, oy = 4 + (h - 8 - hU * u) / 2;
+      slots.forEach((s2) => (s2.p = s2.p.map((p) => [f1(ox + (p[0] - minX) * u), f1(oy + (p[1] - minY) * u)])));
+      const polyD = (p) => "M" + p.map((q) => q[0] + " " + q[1]).join("L") + "Z";
+      let s = slots.map((s2) => `<path d="${polyD(s2.p)}" fill="#ced4da" stroke="#ced4da" stroke-width="0.4" stroke-linejoin="round"/>`).join("");
+      if (level === 1) s += slots.map((s2) => `<path d="${polyD(s2.p)}" fill="none" stroke="#868e96" stroke-width="0.4" stroke-dasharray="1.5 1"/>`).join("");
+      s += text(box0 + 24, 10, `조각 ${want}개`, 4.4, { anchor: "start", fill: ctx.accent });
+      s += `<g class="tray"></g>`;
+      items.push({ svg: svg(W, h, s), mode: "tangram", rot, trayPos: tray, slots: slots.map((s2) => ({ t: s2.t, i: s2.i, p: s2.p })), u, tray: { x: box0 + 16, y: 14, w: W - (box0 + 16), h: h - 15 }, answer: null });
+    }
+    return { instr: ctx.kid ? "칠교 조각을 오려서 회색 모양을 채워 보세요. (태블릿에서는 조각을 끌어 옮기고, 눌러서 돌려요)" : "칠교 조각으로 회색 모양을 빈틈없이 채우세요. 조각 수가 적혀 있어요.", items };
+  }
+  /* 인쇄용: 칠교 조각 오리기 쪽 */
+  VP.tangramCutout = function () {
+    const u = 12.5;
+    let s = `<g transform="translate(58 20)">` + TANGRAM.map((pc) => `<path d="M${pc.p.map((q) => f1(q[0] * u) + " " + f1(q[1] * u)).join("L")}Z" fill="${pc.c}" stroke="#212529" stroke-width="0.6" stroke-dasharray="2 1.5" stroke-linejoin="round"/>`).join("") + `</g>`;
+    s += icon("2702", 30, 14, 12);
+    return svg(W, 4 * u + 30, s);
+  };
+
   // ================= 영역 정의 =================
   VP.AREAS = {
-    A: { name: { kid: "꼼꼼히 찾기", teen: "시각 주의·탐색" }, full: "시각 주의·탐색", color: "#e8590c", kinds: { 1: [A_cancel, A_track, A_dots, A_numPath, A_trail], 2: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail], 3: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail] } },
-    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot, B_seq, B_rows, B_size], 2: [B_match, B_odd, B_spot, B_seq, B_rows, B_size], 3: [B_match, B_odd, B_spot, B_seq, B_rows, B_size] } },
+    A: { name: { kid: "꼼꼼히 찾기", teen: "시각 주의·탐색" }, full: "시각 주의·탐색", color: "#e8590c", kinds: { 1: [A_cancel, A_track, A_dots, A_numPath, A_trail, A_shop], 2: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail, A_shop], 3: [A_cancel, A_track, A_rows, A_numPath, A_dots, A_trail, A_shop] } },
+    B: { name: { kid: "똑같은 것 찾기", teen: "시각 변별" }, full: "시각 변별", color: "#f08c00", kinds: { 1: [B_match, B_odd, B_spot, B_seq, B_rows, B_size, B_sil], 2: [B_match, B_odd, B_spot, B_seq, B_rows, B_size, B_sil], 3: [B_match, B_odd, B_spot, B_seq, B_rows, B_size, B_sil] } },
     C: { name: { kid: "숨은 그림 찾기", teen: "전경-배경 구분" }, full: "전경-배경(도형-배경)", color: "#2f9e44", kinds: { 1: [C_overlap, C_shapes], 2: [C_overlap, C_shapes, C_embed], 3: [C_overlap, C_hidden, C_embed] } },
-    D: { name: { kid: "모양 알아보기", teen: "형태 항상성" }, full: "형태 항상성", color: "#0c8599", kinds: { 1: [D_shapes, D_icons, D_pair], 2: [D_shapes, D_icons, D_pair], 3: [D_patterns, D_icons, D_shapes, D_pair] } },
-    E: { name: { kid: "방향 알아보기", teen: "공간 관계" }, full: "공간 관계", color: "#1c7ed6", kinds: { 1: [E_oddFlip, E_sameDir, E_position], 2: [E_sameDir, E_glyphs, E_position, E_symmetry], 3: [E_rotate, E_rotIcon, E_symmetry] } },
-    F: { name: { kid: "무엇일까요?", teen: "시각 완성" }, full: "시각 통합(시각 완성)", color: "#7048e8", kinds: { 1: [(c) => F_mask(c, "side"), F_gapShape, F_pieces, F_pie], 2: [(c) => F_mask(c, "blocks"), F_gapShape, F_pieces, F_pie], 3: [(c) => F_mask(c, "blocksHard"), (c) => F_mask(c, "stripes"), F_pieces, F_pie] } },
-    G: { name: { kid: "기억하기", teen: "시각 기억" }, full: "시각 기억", color: "#d6336c", kinds: { 1: [G_icons, G_position, G_missing], 2: [G_icons, G_position, G_missing], 3: [G_sequence, G_position, G_missing] } },
-    H: { name: { kid: "따라 그리기", teen: "시각-운동 협응" }, full: "시각-운동 협응", color: "#8f5b1f", kinds: { 1: [H_trace, H_copy, H_cells, H_path], 2: [H_trace, H_copy, H_path, H_blocks, H_maze], 3: [H_trace, H_copy, (c) => H_copy(c, true), H_maze, H_blocks] } },
+    D: { name: { kid: "모양 알아보기", teen: "형태 항상성" }, full: "형태 항상성", color: "#0c8599", kinds: { 1: [D_shapes, D_icons, D_pair, D_font], 2: [D_shapes, D_icons, D_pair, D_font], 3: [D_patterns, D_icons, D_shapes, D_pair, D_font] } },
+    E: { name: { kid: "방향 알아보기", teen: "공간 관계" }, full: "공간 관계", color: "#1c7ed6", kinds: { 1: [E_oddFlip, E_sameDir, E_position, E_map, E_cubes, E_tangram], 2: [E_sameDir, E_glyphs, E_position, E_symmetry, E_map, E_cubes, E_tangram], 3: [E_rotate, E_rotIcon, E_symmetry, E_map, E_cubes, E_tangram] } },
+    F: { name: { kid: "무엇일까요?", teen: "시각 완성" }, full: "시각 통합(시각 완성)", color: "#7048e8", kinds: { 1: [(c) => F_mask(c, "side"), F_gapShape, F_pieces, F_pie, F_half], 2: [(c) => F_mask(c, "blocks"), F_gapShape, F_pieces, F_pie, F_half], 3: [(c) => F_mask(c, "blocksHard"), (c) => F_mask(c, "stripes"), F_pieces, F_pie, F_half] } },
+    G: { name: { kid: "기억하기", teen: "시각 기억" }, full: "시각 기억", color: "#d6336c", kinds: { 1: [G_icons, G_position, G_missing, G_where, G_corsi], 2: [G_icons, G_position, G_missing, G_where, G_corsi], 3: [G_sequence, G_position, G_missing, G_where, G_corsi] } },
+    H: { name: { kid: "따라 그리기", teen: "시각-운동 협응" }, full: "시각-운동 협응", color: "#8f5b1f", kinds: { 1: [H_trace, H_copy, H_cells, H_path, H_outline, H_letters, H_cut], 2: [H_trace, H_copy, H_path, H_blocks, H_maze, H_outline, H_letters, H_cut], 3: [H_trace, H_copy, (c) => H_copy(c, true), H_maze, H_blocks, H_outline, H_letters, H_cut] } },
   };
   VP.AREA_ORDER = "ABCDEFGH".split("");
 

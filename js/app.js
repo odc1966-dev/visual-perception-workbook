@@ -71,7 +71,7 @@
     $("#btnAgain").onclick = () => startPage();
     $("#btnNext").onclick = () => { if (S.page < 10) S.page++; else if (S.level < 3) { S.level++; S.page = 1; } saveS(); startPage(); };
     $("#btnToHome").onclick = () => { renderHome(); show("home"); };
-    $("#btnSpeak").onclick = () => speak(P && P.page.instr, true);
+    $("#btnSpeak").onclick = () => speak(P && (P.page.appInstr || P.page.instr), true);
     // 🏠 1초 길게 누르기 → 끝내기
     const hb = $("#btnHome"); let ht = null, t0 = 0;
     const bar = hb.querySelector("i");
@@ -108,6 +108,40 @@
     speechSynthesis.speak(u);
   }
 
+  // ================= 앱 전용 지시문 =================
+  /* 종이 지시문("○ 하세요", "종이로 가려요" 등)을 태블릿 조작에 맞게 바꾼다. 유형마다 다른 것은 APP_INSTR 에 직접 적는다. */
+  const APP_INSTR = {
+    A_track: ["번호 순서대로, 선을 따라가서 도착한 그림을 눌러요. (깜빡이는 번호부터)", "깜빡이는 번호부터 선을 눈으로 따라가 도착한 그림을 차례로 누르세요."],
+    A_dots: ["1부터 순서대로 점을 눌러 이어 보세요.", "1부터 번호 순서대로 점을 누르세요. 다 이으면 모양이 완성됩니다."],
+    A_trail: ["순서대로 동그라미를 눌러서 이어 보세요.", "순서대로 동그라미를 누르세요. (1 → 가 → 2 → 나 처럼 번갈아 나오면 그 순서대로)"],
+    A_numPath: ["왼쪽 그림과 같은 그림만 밟아서 오른쪽까지 가요. 길이 되는 칸을 눌러요.", "왼쪽 화살표의 숫자만 밟아 오른쪽까지 가는 길의 칸을 모두 누르세요."],
+    D_pair: ["왼쪽 위 그림부터 차례로, 같은 그림을 오른쪽에서 찾아 눌러요.", "왼쪽 그림을 위에서부터 차례로 보고, 같은 물건을 오른쪽에서 누르세요."],
+    G_icons: ["그림을 잘 보세요. 그림이 사라지면 본 그림을 눌러요.", "그림을 기억하세요. 사라진 뒤 보았던 것을 모두 누르세요."],
+    G_position: ["칠해진 칸을 잘 보세요. 사라지면 같은 칸을 눌러서 칠해요.", "칠해진 칸의 위치를 기억한 뒤, 사라지면 같은 칸을 누르세요."],
+    G_missing: ["그림들을 잘 보세요. 사라진 뒤 하나가 없어져요. 없어진 그림을 눌러요.", "그림들을 기억하세요. 사라진 뒤 없어진 하나를 고르세요."],
+    G_sequence: ["그림 순서를 잘 보세요. 사라지면 순서가 똑같은 줄을 눌러요.", "그림의 순서를 기억한 뒤, 같은 순서인 줄을 고르세요."],
+    G_corsi: ["번호가 붙은 칸을 잘 보세요. 사라지면 같은 칸을 1번부터 순서대로 눌러요.", "번호 순서를 기억한 뒤, 사라지면 같은 칸을 1번부터 순서대로 누르세요."],
+    G_where: ["그림이 어디에 있는지 잘 보세요. 사라지면 왼쪽 그림이 있던 칸을 눌러요.", "물건의 위치를 기억한 뒤, 제시된 물건이 있던 칸을 누르세요."],
+    H_trace: ["가운데 점선 모양을 손가락이나 펜으로 따라 그려요.", "점선 모양을 펜으로 따라 그리세요."],
+    H_outline: ["점선을 따라 그림을 그려 보세요.", "점선을 따라 윤곽을 펜으로 그리세요. 끊기지 않게 천천히."],
+    H_letters: ["흐린 글자 두 개 위를 펜으로 따라 써요.", "흐린 글자 두 개 위를 펜으로 따라 쓰세요."],
+    H_cut: ["가위로 자르듯이 손가락으로 점선 가운데를 따라가요.", "가위질하듯 회색 길 가운데의 점선을 따라 그으세요."],
+    H_copy: ["왼쪽 그림을 보고 오른쪽 칸에 똑같이 그려 보세요.", "왼쪽 선을 오른쪽 격자의 같은 자리에 그리세요. 점과 점 사이를 이어 그으면 됩니다."],
+    E_symmetry: ["점선이 거울이에요. 오른쪽에 거울에 비친 모양을 그려요.", "점선을 기준으로 대칭이 되도록 오른쪽에 선을 그으세요."],
+    E_tangram: ["조각을 끌어서 회색 모양에 맞춰요. 조각을 톡 누르면 돌아가요.", "조각을 끌어 회색 모양을 채우세요. 조각을 톡 누르면 45°씩 돌아갑니다."],
+    E_position: ["판에서 그림을 찾고, 화살표 쪽으로 한 칸 간 곳의 그림을 눌러요.", "판에서 그림을 찾아 화살표대로 이동한 곳의 그림을 누르세요."],
+  };
+  function appInstr(page) {
+    const o = APP_INSTR[page.kind];
+    if (o) return o[S.theme === "kid" ? 0 : 1];
+    return page.instr
+      .replace(/종이로 가려요.?|종이로 가리세요.?|점선을 따라 가리세요.?|가리세요.?|가려요.?/g, "")
+      .replace(/5초 동안 보고/g, "잘 보고")
+      .replace(/○ 표시하세요/g, "누르세요").replace(/○ 하세요/g, "눌러 보세요")
+      .replace(/칠하세요/g, "눌러서 칠하세요").replace(/칠해 보세요/g, "눌러서 칠해 보세요")
+      .replace(/s+/g, " ").trim();
+  }
+
   // ================= 활동 진행 =================
   let P = null, cur = null, scanT = null, scanSel = null;
 
@@ -118,9 +152,10 @@
     P = { page, items, idx: 0, results: [], t0: Date.now() };
     show("play");
     $("#playTitle").textContent = `${S.area} ${VP.AREAS[S.area].name[S.theme]} ${"★".repeat(S.level)} · ${S.page}쪽`;
-    $("#instr").textContent = page.instr;
+    page.appInstr = appInstr(page);
+    $("#instr").textContent = page.appInstr;
     $("#progress").innerHTML = items.map(() => "<span></span>").join("");
-    speak(page.instr);
+    speak(page.appInstr);
     runItem();
   }
   function quitPlay() { clearStage(); speechSynthesis && speechSynthesis.cancel(); P = null; renderHome(); show("home"); }
@@ -308,6 +343,7 @@
         clearStage();
         const A = mount(it.ask);
         if (it.sub === "cells") return cellsToggle(A, it.answer, done);
+        if (it.sub === "order") return orderTap(A, it.seq, done);
         selectLoop(A, it.answer, it.sub === "all", done);
       };
     },
@@ -449,6 +485,7 @@
       };
     },
 
+    tangram(it, done) { tangramPlay(it, done); },
     trace(it, done) { freeDraw(it, done, "trace"); },
     path(it, done) { freeDraw(it, done, "path"); },
     maze(it, done) { freeDraw(it, done, "maze"); },
@@ -511,6 +548,13 @@
     return out;
   }
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  /* 점 목록에서 고르게 n개 뽑기 (윤곽·글자 따라 그리기) */
+  function sampleList(pts, n) {
+    const step = Math.max(1, Math.floor(pts.length / n));
+    const out = [];
+    for (let i = 0; i < pts.length; i += step) out.push({ x: pts[i][0], y: pts[i][1] });
+    return out;
+  }
 
   function freeDraw(it, done, kind) {
     noScan();
@@ -537,8 +581,8 @@
 
   function evaluate(M, it, kind, ink) {
     if (kind === "trace" || kind === "path") {
-      const tol = kind === "trace" ? 2.6 : it.width / 2 + 0.8;
-      const line = samplePath(M, it.path, 80);
+      const tol = kind === "trace" ? (it.pts ? 3 : 2.6) : it.width / 2 + 0.8;
+      const line = it.pts ? sampleList(it.pts, 160) : samplePath(M, it.path, 80);
       const cov = line.filter((q) => ink.some((p) => dist(p, q) < tol)).length / line.length;
       let score = Math.round(cov * 100);
       if (kind === "path") {
@@ -548,7 +592,7 @@
         score = Math.max(0, score - out);
         return { ok: cov >= 0.85 && out <= 12, score, text: `길 따라가기 ${Math.round(cov * 100)}% · 벗어난 부분 ${out}%` };
       }
-      return { ok: cov >= 0.75, score, text: `점선 따라 긋기 ${score}%` };
+      return { ok: cov >= (it.pts ? 0.7 : 0.75), score, text: `따라 그리기 ${score}%` };
     }
     // 미로: 칸 이동을 따라가며 벽을 넘었는지 센다
     const m = it.maze, walls = new Set(m.walls);
@@ -571,6 +615,90 @@
     }
     const ok = started && reached && cross === 0;
     return { ok, score: ok ? 100 : Math.max(0, 100 - cross * 20 - (reached ? 0 : 40)), text: ok ? "도착! 벽을 넘지 않았어요" : !reached ? "아직 도착하지 않았어요" : `벽을 ${cross}번 넘었어요` };
+  }
+
+  /* 칠교: 조각을 끌어 회색 자리에 맞춘다. 톡 누르면 45° 회전. 꼭짓점이 모두 가까우면 자리에 붙는다 */
+  function tangramPlay(it, done) {
+    noScan();
+    const M = mount(it.svg);
+    const u = it.u, T = VP.TANGRAM;
+    const centroid = (p) => [p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length];
+    const filled = new Set();
+    const pieces = it.slots.map((sl, k) => {
+      const base = T[sl.i].p.map((q) => [q[0] * u, q[1] * u]);
+      const c = centroid(base);
+      const local = base.map((q) => [q[0] - c[0], q[1] - c[1]]);
+      // 처음 각도: 정답 각도에서 45°의 배수만큼 돌려 놓는다 (1단계는 정답 각도 그대로)
+      const ang = it.rot + (P.page.level === 1 ? 0 : 45 * (1 + ((k * 3 + sl.i) % 7)));
+      const g = el(M.top, "path", { fill: T[sl.i].c, stroke: "#343a40", "stroke-width": 0.4, "stroke-linejoin": "round", style: "cursor:grab" });
+      return { k, i: sl.i, t: sl.t, local, ang, x: 0, y: 0, g, placed: false };
+    });
+    // 조각 처음 자리·각도는 문항을 만들 때 계산해 둔 것(trayPos)을 쓴다
+    pieces.forEach((pc, k) => { const t = it.trayPos[k]; pc.ang = t.ang; pc.x = t.x; pc.y = t.y; });
+    const verts = (pc) => { const a2 = (pc.ang * Math.PI) / 180; return pc.local.map((q) => [pc.x + q[0] * Math.cos(a2) - q[1] * Math.sin(a2), pc.y + q[0] * Math.sin(a2) + q[1] * Math.cos(a2)]); };
+    const draw = (pc) => pc.g.setAttribute("d", "M" + verts(pc).map((q) => q[0].toFixed(2) + " " + q[1].toFixed(2)).join("L") + "Z");
+    pieces.forEach(draw);
+    const inside = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if (yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi) c = !c; } return c; };
+    const trySnap = (pc) => {
+      const V = verts(pc), tol = u * 0.4;
+      for (let s2 = 0; s2 < it.slots.length; s2++) {
+        const sl = it.slots[s2];
+        if (filled.has(s2) || sl.t !== pc.t || sl.p.length !== V.length) continue;
+        const sc = centroid(sl.p), pcC = centroid(V);
+        if (Math.hypot(sc[0] - pcC[0], sc[1] - pcC[1]) > tol) continue;
+        const dx = sc[0] - pcC[0], dy = sc[1] - pcC[1];
+        const ok = V.every((q) => sl.p.some((w) => Math.hypot(q[0] + dx - w[0], q[1] + dy - w[1]) < tol * 0.6));
+        if (!ok) continue;
+        pc.x += dx; pc.y += dy; pc.placed = true; filled.add(s2); draw(pc);
+        pc.g.style.cursor = "default"; sound("ok");
+        if (filled.size === it.slots.length) setTimeout(() => done({ ok: true, errors: 0 }), 500);
+        return true;
+      }
+      return false;
+    };
+    let drag = null;
+    M.ov.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      const p = pt(M, e);
+      const pc = pieces.slice().reverse().find((q) => !q.placed && inside(p, verts(q)));
+      if (!pc) return;
+      try { M.ov.setPointerCapture(e.pointerId); } catch (err) {}
+      M.top.appendChild(pc.g); // 맨 위로
+      drag = { pc, id: e.pointerId, sx: p.x, sy: p.y, ox: pc.x, oy: pc.y, moved: false };
+    });
+    M.ov.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const p = pt(M, e);
+      if (Math.hypot(p.x - drag.sx, p.y - drag.sy) > 1.5) drag.moved = true;
+      drag.pc.x = drag.ox + p.x - drag.sx; drag.pc.y = drag.oy + p.y - drag.sy; draw(drag.pc);
+    });
+    const up = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const pc = drag.pc;
+      if (!drag.moved) { pc.ang = (pc.ang + 45) % 360; draw(pc); }
+      trySnap(pc);
+      drag = null;
+    };
+    M.ov.addEventListener("pointerup", up);
+    M.ov.addEventListener("pointercancel", up);
+    const bar = tools(`<span class="hint" style="align-self:center">조각을 톡 누르면 돌아가요</span>`);
+    offerSkip(done, () => ({ ok: false, errors: 1, score: Math.round((100 * filled.size) / it.slots.length) }));
+    M.__tangram = { pieces, verts, trySnap, draw, filled }; // 점검용
+  }
+
+  /* 순서대로 칸 누르기: 맞으면 번호가 찍히고, 틀리면 흔들림. 두 번 틀리면 정답 순서를 보여 준다 */
+  function orderTap(M, seq, done) {
+    let k = 0, errors = 0;
+    const byId = Object.fromEntries(M.hits.map((h) => [h.id, h]));
+    const stamp = (h, n, cls) => { el(M.inkL, "circle", { cx: h.cx, cy: h.cy, r: h.w * 0.34, fill: cls === "cue" ? "none" : "#1c7ed6", stroke: "#1c7ed6", "stroke-width": 0.8, "stroke-dasharray": cls === "cue" ? "1.5 1" : "" }); const t = el(M.inkL, "text", { x: h.cx, y: h.cy, "font-size": h.w * 0.36, "text-anchor": "middle", "dominant-baseline": "central", fill: cls === "cue" ? "#1c7ed6" : "#fff", "font-weight": 700 }); t.textContent = n; };
+    const pick = (h) => {
+      if (h.id === seq[k]) { stamp(h, k + 1); sound("ok"); k++; if (k >= seq.length) done({ ok: errors === 0, errors }); return; }
+      if (seq.slice(0, k).includes(h.id)) return;
+      flash(M, h); errors++; sound("bad");
+      if (errors >= 2) { seq.slice(k).forEach((id, j) => stamp(byId[id], k + j + 1, "cue")); setTimeout(() => done({ ok: false, errors }), 2200); k = seq.length; }
+    };
+    onTap(M, pick);
+    startScan(M, () => M.hits.filter((h) => !seq.slice(0, k).includes(h.id)), pick);
   }
 
   /* 기억한 칸 칠하기: 정답 수만큼 칠하면 자동으로 확인 */
@@ -630,6 +758,19 @@
   // ================= 시작 =================
   bindHome();
   renderHome();
+  // 버전 표시
+  const verEl = document.getElementById("appVer");
+  if (verEl) verEl.textContent = "버전 " + (VP.VERSION || "개발 중");
+  // 새 버전이 받아지면 알림 띄우기 (서비스워커가 바뀌면 controllerchange)
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    const hadCtrl = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadCtrl) return;
+      const b = document.getElementById("updBanner");
+      if (b) b.hidden = false;
+    });
+    navigator.serviceWorker.getRegistration().then((r) => r && r.update()).catch(() => {});
+  }
   // 오프라인 저장은 배포 주소에서만 (개발 중 localhost 에서는 옛 파일이 남지 않게 끔)
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
   else if ("serviceWorker" in navigator) navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));

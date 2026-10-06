@@ -42,7 +42,7 @@
     const multi = list.length > 1;
     let no = 0;
     const items = p.items.map((it) => it.mode === "label" ? it.svg : `<div class="card${multi ? "" : " single"}" data-mode="${it.mode}">${multi ? `<span class="num">${++no}</span>` : ""}${it.svg}</div>`).join("");
-    return `<section class="page ${theme}" style="--acc:${A.color};--tint:${A.color}1c">${hd}<div class="instr">${p.instr}</div><div class="items">${items}</div><div class="ft"><span>시지각 워크북 · ${THEME_NAME[theme]}</span><span>${code}</span></div></section>`;
+    return `<section class="page ${theme}" data-kind="${p.kind}" style="--acc:${A.color};--tint:${A.color}1c">${hd}<div class="instr">${p.instr}</div><div class="items">${items}</div><div class="ft"><span>시지각 워크북 · ${THEME_NAME[theme]}</span><span>${code}</span></div></section>`;
   }
 
   function logSheet() {
@@ -64,6 +64,8 @@
     } else if (sample) pages.push(page(VP.makePage(a, l, theme, kid ? 1 : 2)));
     else for (let n = p0; n <= p1; n++) pages.push(page(VP.makePage(a, l, theme, n)));
   }
+  // 칠교 활동이 들어 있으면 조각 오리기 쪽을 한 번 넣는다
+  if (book.dataset.tangram === "1" || pages.some((x) => x.includes('data-kind="E_tangram"'))) pages.push(`<section class="page ${theme}"><div class="hd" style="--tint:#eee"><div class="ttl">칠교 조각 (오려서 쓰세요)</div></div><div class="instr">두꺼운 종이에 인쇄하거나 붙인 뒤 점선을 따라 오리세요. 퍼즐 쪽의 회색 모양과 크기가 같습니다.</div><div class="items">${VP.tangramCutout()}</div><div class="ft"><span>시지각 워크북 · ${THEME_NAME[theme]}</span><span>칠교 조각</span></div></section>`);
   if (q.get("log") === "1") pages.push(logSheet());
   if (q.get("credit") !== "0") pages.push(credit());
   book.innerHTML = pages.join("");
