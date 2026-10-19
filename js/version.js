@@ -1,1 +1,1 @@
-window.VP = window.VP || {}; VP.VERSION = "2026-10-06 18:09";
+window.VP = window.VP || {}; VP.VERSION = "2026-10-19 20:59";

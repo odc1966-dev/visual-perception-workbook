@@ -592,6 +592,11 @@
         score = Math.max(0, score - out);
         return { ok: cov >= 0.85 && out <= 12, score, text: `길 따라가기 ${Math.round(cov * 100)}% · 벗어난 부분 ${out}%` };
       }
+      // 겹친 모양 중 하나만 따라 그리기: 다른 모양을 절반 넘게 따라 그렸으면 다시
+      if (it.avoid) {
+        const over = Math.max(...it.avoid.map((d) => { const L2 = samplePath(M, d, 60); return L2.filter((q) => ink.some((p) => dist(p, q) < tol)).length / L2.length; }));
+        if (over > 0.55) return { ok: false, score: Math.round(score / 2), text: "다른 모양까지 그렸어요. 보기 모양만 따라 그려요" };
+      }
       return { ok: cov >= (it.pts ? 0.7 : 0.75), score, text: `따라 그리기 ${score}%` };
     }
     // 미로: 칸 이동을 따라가며 벽을 넘었는지 센다

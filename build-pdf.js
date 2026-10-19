@@ -23,7 +23,9 @@ function print(query, file) {
 
 const [mode, onlyArea, onlyTheme] = process.argv.slice(2);
 if (mode === "new") {
-  for (const t of Object.keys(THEMES)) print(`theme=${t}&sample=new&cover=0&credit=0`, `새유형샘플_${THEMES[t]}.pdf`);
+  // node build-pdf.js new C_camo,E_fold  → 지정한 유형만
+  const kinds = onlyArea ? `&kinds=${onlyArea}&areas=${[...new Set(onlyArea.split(",").map((k) => k[0]))].join("")}` : "";
+  for (const t of Object.keys(THEMES)) print(`theme=${t}&sample=new&cover=0&credit=0${kinds}`, `새유형샘플_${THEMES[t]}.pdf`);
 } else if (mode === "sample") {
   for (const t of Object.keys(THEMES)) print(`theme=${t}&sample=1`, `샘플_${THEMES[t]}.pdf`);
 } else if (mode === "full") {
